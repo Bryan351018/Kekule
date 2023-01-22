@@ -1,3 +1,4 @@
+/* eslint-disable no-undef */
 'use strict';
 // Change 'xdescribe' and 'xit' to 'describe' and 'it' to enable tests
 
