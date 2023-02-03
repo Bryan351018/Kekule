@@ -9,3 +9,6 @@ A web-based inventory that tracks chemicals and apparatuses
 ## APIs used
 + [PubChem](https://www.ncbi.nlm.nih.gov/): chemical information
 
+## TODO
+- [ ] Complete UI
+- [ ] Complete Kekule internal logic
