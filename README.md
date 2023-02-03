@@ -1,5 +1,11 @@
 # Kekule
 A web-based inventory that tracks chemicals and apparatuses
 
-## Libraries used
-+ [Jasmine](https://jasmine.github.io/) (for testing)
+## Software libraries used
++ [Jasmine](https://jasmine.github.io/): testing framework
++ [Remix Icon](https://remixicon.com/): icon library
++ [Bootstrap](https://getbootstrap.com/): UI library
+
+## APIs used
++ [PubChem](https://www.ncbi.nlm.nih.gov/): chemical information
+
