@@ -5,8 +5,63 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>APPARATUSES</title>
+
+    <!-- Bootstrap library, CSS component -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet"
+        integrity="sha384-GLhlTQ8iRABdZLl6O3oVMWSktQOp6b7In1Zl3/Jr59b6EGGoI1aFkw7cmDA6j6gD" crossorigin="anonymous">
+
+    <!-- Main stylesheet -->
+    <link rel="stylesheet" href="../main.css" />
 </head>
 <body>
-    APPARATUSES
+    <!-- Search bar and submit button-->
+    <form class="row row-cols-lg-auto g-3 align-items-center">
+        <div class="col-12">
+            <label class="visually-hidden" for="inlineFormInputGroupUsername">Search...</label>
+            <div class="input-group">
+                <!-- <div class="input-group-text">@</div> -->
+                <input type="text" placeholder="Search...">
+            </div>
+        </div>
+
+        <div class="col-12">
+            <button type="submit" class="btn btn-primary">Submit</button>
+        </div>
+    </form>
+
+    <!-- Main table -->
+    <table class="table">
+        <thead>
+            <tr>
+                <th scope="col">Count</th>
+                <th scope="col">Apparatus</th>
+                <th scope="col">Tags</th>
+                <th scope="col">Last edited</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <th scope="row">3</th>
+                <td>Beaker</td>
+                <td>
+                    <span class="badge rounded-pill text-bg-dark">A1</span>
+                </td>
+                <td>2005-3-26 11:29:37 a.m.</td>
+            </tr>
+            <tr>
+                <th scope="row">1</th>
+                <td>Hot plate</td>
+                <td>
+                    <span class="badge rounded-pill text-bg-dark">B1</span>
+                </td>
+                <td>2015-12-11 9:59:27 p.m.</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <!-- Bootstrap library, JS component -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"
+        integrity="sha384-w76AqPfDkMBDXo30jS1Sgez6pr3x5MlQ1ZAGC+nuZB+EYdgRZgiwxhTBTkF7CXvN"
+        crossorigin="anonymous"></script>
 </body>
 </html>

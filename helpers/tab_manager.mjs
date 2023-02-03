@@ -7,6 +7,9 @@
 // Find the iframe that is displayed on the main page
 let frame = document.getElementById("main-frame");
 
+// Find the <title element>
+let titleEl = document.getElementById("browser-tab-title");
+
 // The frame name stored in the session
 const sessionFrameName = sessionStorage.getItem("mainFrameName");
 
@@ -24,26 +27,29 @@ function setMainFrame(name)
 }
 
 // Set the frame on page load
-if (sessionFrameName)
-    setMainFrame();
-else
+if (!sessionFrameName)
     sessionStorage.setItem("mainFrameName", "chemicals");
+titleEl.innerText = "Kekule: Chemicals";
+setMainFrame();
+
 
 
 // ---- Attach event handlers ----
 
 // Abstraction
-function attachTabHandler(elId, name)
+function attachTabHandler(elId, name, dispName)
 {
     document.getElementById(elId).onclick = () => 
     {
         setMainFrame(name);
         sessionStorage.setItem("mainFrameName", name);
+        titleEl.innerText = `Kekule: ${dispName}`;
+
         console.log(elId, name)
     }
 }
 
 // Call the functions
-attachTabHandler("chemicals-tab", "chemicals");
-attachTabHandler("apparatuses-tab", "apparatuses");
-attachTabHandler("inventories-tab", "inventories");
+attachTabHandler("chemicals-tab", "chemicals", "Chemicals");
+attachTabHandler("apparatuses-tab", "apparatuses", "Apparatuses");
+attachTabHandler("inventories-tab", "inventories", "Inventories");
