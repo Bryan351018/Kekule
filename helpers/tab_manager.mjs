@@ -23,14 +23,18 @@ function setMainFrame(name)
     if (name || sessionFrameName)
         frame.setAttribute("src", `./frames/${name ?? sessionFrameName}.html`);
     else
+    {
         throw Error("Main frame name not specified, and not found in session storage.");
+    }
 }
 
 // Set the frame on page load
-if (!sessionFrameName)
-    sessionStorage.setItem("mainFrameName", "chemicals");
-titleEl.innerText = "Kekule: Chemicals";
-setMainFrame();
+// if (!sessionFrameName)
+// {
+//     sessionStorage.setItem("mainFrameName", "chemicals");
+//     titleEl.innerText = "Kekule: Chemicals";
+// }
+// setMainFrame();
 
 
 
@@ -53,3 +57,13 @@ function attachTabHandler(elId, name, dispName)
 attachTabHandler("chemicals-tab", "chemicals", "Chemicals");
 attachTabHandler("apparatuses-tab", "apparatuses", "Apparatuses");
 attachTabHandler("inventories-tab", "inventories", "Inventories");
+
+// Set the main frame and titles
+if (!sessionFrameName)
+{
+    document.getElementById("chemicals-tab").click();
+}
+else
+{
+    document.getElementById(`${sessionFrameName}-tab`).click();
+}
