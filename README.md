@@ -8,7 +8,7 @@ A web-based inventory that tracks chemicals and apparatuses
 + [Bootstrap](https://getbootstrap.com/): UI library
 
 ## APIs used
-+ [PubChem](https://www.ncbi.nlm.nih.gov/): chemical information
++ [PubChem](https://pubchem.ncbi.nlm.nih.gov/): chemical information
 
 ## TODO
 - [ ] Complete UI
