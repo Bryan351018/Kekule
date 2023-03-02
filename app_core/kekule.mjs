@@ -3,6 +3,8 @@
  * @module app_core/kekule
  */
 
+import { HistoryTree } from "./history_tree.mjs"
+
 /** Class representing an abstract record that contains a name and a "Last Edited" date. */
 class Record
 {
@@ -84,7 +86,7 @@ class Item extends Record
     }
 }
 
-/** Class representing an action that can be done annd undone. */
+/** Class representing an action that can be done and undone. */
 class Action
 {
     /**
@@ -120,6 +122,16 @@ class AddAction extends Action
      * @type {Item | SubItem}
      */
     added;
+
+    /**
+     * Create an AddAction.
+     * @param {Item | SubItem} obj The object to add.
+     */
+    constructor(obj)
+    {
+        super();
+        this.added = obj;
+    }
 }
 
 
@@ -147,6 +159,16 @@ class DeleteAction extends Action
      * @type {Item | SubItem}
      */
     deleted;
+
+    /**
+     * Create an DeleteAction.
+     * @param {Item | SubItem} obj The object to delete.
+     */
+    constructor(obj)
+    {
+        super();
+        this.deleted = obj;
+    }
 }
 
 /** Class representing a tag that has a name and a color. */
@@ -368,7 +390,7 @@ class GHSCode
      */
     get code()
     {
-
+        return ""
     }
 }
 
@@ -422,10 +444,16 @@ class Inventory
     apparatuses = [];
 
     /** 
-     * The list of histories
-     * @type {Array<Action>}
+     * The list of chemical histories
+     * @type {HistoryTree}
     */
-    history = [];
+    chemHistories = new HistoryTree();
+
+    /** 
+     * The list of apparatus histories
+     * @type {HistoryTree}
+    */
+    appaHistories = new HistoryTree();
 
     /**
      * Create an inventory.
@@ -438,7 +466,7 @@ class Inventory
      * @param {Inventory} b the second inventory
      * @return {Object<Array<Action>, Array<Action>>} the list of actions to apply to the first inventory to get the second inventory
      */
-    static compareWith(a, b)
+    static compare(a, b)
     {
 
     }
@@ -465,28 +493,28 @@ class Inventory
 
     addChemical(item)
     {
-
+        this.chemHistories.doAction(new AddAction(item));
     }
 
     addApparatus(item)
     {
-
+        this.appaHistories.doAction(new AddAction(item));
     }
 
     removeChemical(index)
     {
-        this.chemicals.splice(index, 1);
+        
     }
 
     removeApparatus(index)
     {
-        this.apparatuses.splice(index, 1);
+        
     }
 }
 
 export
 {
-    AddAction, EditAction, DeleteAction, Tag,
+    Action, AddAction, EditAction, DeleteAction, Tag,
     Chemical, SpecificChemical, Container, GHSPictogram, GHSCode,
     Apparatus, SpecificApparatus,
     Inventory

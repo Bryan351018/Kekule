@@ -1,0 +1,21 @@
+#name-formula-display
+{
+    text-align: center;
+}
+#name-formula-display > *
+{
+    font-family: 'Courier New', Courier, monospace;
+    font-size: xx-large;
+    margin-right: 3em;
+}
+
+#close-button
+{
+    width: 3em;
+    height: 3em;
+}
+
+#tags > span
+{
+    cursor: pointer;
+}

@@ -13,6 +13,12 @@ iframe {
     top: 0px;
 }
 
+/* Show vertical scrool bars */
+body.framed{
+    overflow-x: hidden;
+    overflow-y: auto;
+}
+
 .inline-menu-item {
     font-family: 'Courier New', Courier, monospace;
 }

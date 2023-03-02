@@ -2,6 +2,17 @@
 'use strict';
 // Change 'xdescribe' and 'xit' to 'describe' and 'it' to enable tests
 
+// Dynamically import modules
+
+/**
+ * 
+ * @param {string} path The path of the module.
+ * @param {object} place The variable to store the input to.
+ */
+
+// app_core/kekule
+var K;
+import("../../app_core/kekule.mjs").then((ns)=>{K=ns;}).catch(()=>{throw EvalError("Failed to import app_core/kekule.mjs for testing")});
 
 xdescribe("Given that the user is on the chemicals tab...", function(){
 
@@ -310,8 +321,8 @@ xdescribe("Given that the user is on the inventories tab", function(){
 
 
 
-xdescribe("Given that the user is on either the chemicals tab or the apparatuses tab", function(){
-    xit("when the user tries to “undo” or “redo” an operation, and there are operations done on chemicals or apparatuses, then the program should react according to the user", function(){
+describe("Given that the user is on either the chemicals tab or the apparatuses tab", function(){
+    it("when the user tries to “undo” or “redo” an operation, and there are operations done on chemicals or apparatuses, then the program should react according to the user", function(){
         fail("Not implemented");
     });
 });
