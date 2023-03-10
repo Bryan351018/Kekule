@@ -41,6 +41,12 @@ function setMainFrame(name)
 // ---- Attach event handlers ----
 
 // Abstraction
+/**
+ * Attach an "onclick" handler to a chemical/apparatus/inventory tab for initialization.
+ * @param {string} elId ID of the HTML element to bind to
+ * @param {string} name Name of the frame file to load
+ * @param {string} dispName Display name of the frame file, as used in the <title> element
+ */
 function attachTabHandler(elId, name, dispName)
 {
     document.getElementById(elId).onclick = () => 

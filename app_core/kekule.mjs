@@ -3,7 +3,9 @@
  * @module app_core/kekule
  */
 
-import { HistoryTree } from "./history_tree.mjs"
+import { HistoryTree } from "./history_tree.mjs";
+import { GHSC } from "../ghs_data/ghs_data.mjs";
+import { compRecs, sortedAdd } from "./utilities.mjs";
 
 /** Class representing an abstract record that contains a name and a "Last Edited" date. */
 class Record
@@ -57,11 +59,18 @@ class Item extends Record
      * @type {Array<SubItem>}
      */
     subitems = [];
+
     /**
      * Notes recorded on this item.
      * @type {string}
      */
     notes = "";
+
+    /**
+     * UUID assigned to the item.
+     * @type {string}
+     */
+    UUID;
 
     /**
      * Add a sub-item to the end of the list of sub-items.
@@ -71,7 +80,7 @@ class Item extends Record
     {
         this.subitems.push(item);
 
-        // TODO: register addinng to history
+        // TODO: register adding to history
     }
 
     /**
@@ -90,10 +99,22 @@ class Item extends Record
 class Action
 {
     /**
-     * Integral index of the action performed.
+     * Integral index of the action performed, on the Item array level.
      * @type {number}
      */
-    location;
+    majorLocation = NaN;
+
+    /**
+     * Integral index of the action performed, on the SubItem array level.
+     * @type {number}
+     */
+    minorLocation = NaN;
+
+    /**
+     * Source inventory of which the action is performed on.
+     * @type {Inventory}
+     */
+    source;
 
     /**
      * Un-perform an action
@@ -112,6 +133,15 @@ class Action
         // throw an error here (function not overloaded)
         throw ReferenceError("perform() is not overloaded.");
     }
+
+    /**
+     * Create an action.
+     * @param {Inventory} source The source inventory to perform the action.
+     */
+    constructor(source)
+    {
+        this.source = source;
+    }
 }
 
 /** Class representing an action of adding a data record. */
@@ -126,14 +156,77 @@ class AddAction extends Action
     /**
      * Create an AddAction.
      * @param {Item | SubItem} obj The object to add.
+     * @param {Inventory} source The source inventory to perform the action.
+     * @param {number?} majorLoc The major location inside an Item array, if the object added is a SubItem
      */
-    constructor(obj)
+    constructor(obj, source, majorLoc)
     {
-        super();
+        super(source);
         this.added = obj;
+        if (obj instanceof SubItem)
+        {
+            this.majorLocation = majorLoc;
+        }
+    }
+
+    // Unperform the adding
+    unperform()
+    {
+        // Delete chemical
+        if (this.added instanceof Chemical)
+        {
+            this.source.chemicals.splice(this.majorLocation, 1);
+        }
+        // Delete specific chemical
+        else if (this.added instanceof SpecificChemical)
+        {
+            this.source.chemicals[this.majorLocation].subitems[this.minorLocation].splice(this.minorLocation, 1);
+        }
+        // Delete apparatus
+        else if (this.added instanceof Apparatus)
+        {
+            this.source.apparatuses.splice(this.majorLocation, 1);
+        }
+        // Delete specific apparatus
+        else if (this.added instanceof SpecificApparatus)
+        {
+            this.source.apparatuses[this.majorLocation].subitems[this.minorLocation].splice(this.minorLocation, 1);
+        }
+        else
+        {
+            throw EvalError("Invalid type of added object.");
+        }
+    }
+
+    // Perform the adding
+    perform()
+    {
+        // Add chemical
+        if (this.added instanceof Chemical)
+        {
+            this.majorLocation = sortedAdd(this.added, this.source.chemicals, compRecs);
+        }
+        // Add specific chemical
+        else if (this.added instanceof SpecificChemical)
+        {
+            this.minorLocation = sortedAdd(this.added, this.source.chemicals[this.majorLocation], compRecs);
+        }
+        // Add apparatus
+        else if (this.added instanceof Apparatus)
+        {
+            this.majorLocation = sortedAdd(this.added, this.source.apparatuses, compRecs);
+        }
+        // Add specific apparatus
+        else if (this.added instanceof SpecificApparatus)
+        {
+            this.minorLocation = sortedAdd(this.added, this.source.apparatuses[this.majorLocation], compRecs);
+        }
+        else
+        {
+            throw EvalError("Invalid type of added object.");
+        }
     }
 }
-
 
 /** Class representing an action of editing a data record. */
 class EditAction extends Action
@@ -149,7 +242,6 @@ class EditAction extends Action
      */
     to;
 }
-
 
 /** Class representing an action of deleting a data record. */
 class DeleteAction extends Action
@@ -358,13 +450,13 @@ class GHSCode
      * The letter prefix ("H" or "P") of the code.
      * @type {"H" | "P"}
      */
-    prefix = "";
+    #prefix = "";
 
     /**
-     * The numeric component of the code.
-     * @type {number}
+     * The numeric/alphanumeric component of the code.
+     * @type {string}
      */
-    numeric;
+    #numeric;
 
     /**
      * Get the description text from PubChem that corresponds to this code.
@@ -372,7 +464,18 @@ class GHSCode
      */
     get text()
     {
-        return ""
+        if (this.#prefix == "H")
+        {
+            return GHSC.H[this.#prefix + this.#numeric];
+        }
+        else if (this.#prefix == "P")
+        {
+            return GHSC.P[this.#prefix + this.#numeric];
+        }
+        else
+        {
+            throw EvalError(`${this.#prefix} is not a valid GHS prefix.`);
+        }
     }
 
     /**
@@ -381,7 +484,24 @@ class GHSCode
      */
     set code(value)
     {
-
+        // If the argument is a string
+        if (typeof value === "string")
+        {
+            // If the string has a valid prefix
+            if (value[0] === "H" || value[0] === "P")
+            {
+                this.#prefix = value[0];
+                this.#numeric = value.slice(1);
+            }
+            else
+            {
+                throw TypeError(`"${value}" is not a valid GHS hazard or precautionary code.`);
+            }
+        }
+        else
+        {
+            throw TypeError(`"${value}" is not a valid GHS hazard or precautionary code.`);
+        }
     }
 
     /**
@@ -390,23 +510,59 @@ class GHSCode
      */
     get code()
     {
-        return ""
+        return this.#prefix + this.#numeric;
     }
 }
 
 /** Class representing an NFPA 704 diamond. */
 class NFPADiamond
 {
+    /**
+     * Health rating.
+     * @type {0|1|2|3|4}
+     */
     healthRating;
+    /**
+     * Fire rating.
+     * @type {0|1|2|3|4}
+     */
     fireRating;
+    /**
+     * Instability rating.
+     * @type {0|1|2|3|4}
+     */
     instabilityRating;
+    /**
+     * Specific hazard (e.g. OX, SA, W)
+     * @type {string}
+     */
     specialConsiderations;
+
+    getHealthMsg()
+    {
+
+    }
+
+    getFireMsg()
+    {
+        
+    }
+
+    getInstabilityMsg()
+    {
+        
+    }
+
+    getSpecHazardMsg()
+    {
+        
+    }
 }
 
 /** Class representing an apparatus. */
 class Apparatus extends Item
 {
-
+    // Nothing is in here! Everything is inherited from "Item".
 }
 
 /** Class representing a specific apparatus. */
@@ -437,11 +593,23 @@ class Inventory
     */
     chemicals = [];
 
+    /**
+     * The map of UUIDs to "Chemical" object references
+     * @type {Map<string, Chemical>}
+     */
+    chemicalsMap = new Map();
+
     /** 
      * The list of aparatuses
      * @type {Array<Apparatus>}
     */
     apparatuses = [];
+
+    /**
+     * The map of UUIDs to "Apparatus" object references
+     * @type {Map<string, Apparatus>}
+     */
+    apparatusesMap = new Map();
 
     /** 
      * The list of chemical histories
@@ -517,5 +685,6 @@ export
     Action, AddAction, EditAction, DeleteAction, Tag,
     Chemical, SpecificChemical, Container, GHSPictogram, GHSCode,
     Apparatus, SpecificApparatus,
-    Inventory
+    Inventory,
+    Record
 }

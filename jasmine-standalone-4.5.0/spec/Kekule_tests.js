@@ -1,5 +1,6 @@
 /* eslint-disable no-undef */
 'use strict';
+
 // Change 'xdescribe' and 'xit' to 'describe' and 'it' to enable tests
 
 // Dynamically import modules
@@ -11,8 +12,11 @@
  */
 
 // app_core/kekule
-var K;
+let K;
 import("../../app_core/kekule.mjs").then((ns)=>{K=ns;}).catch(()=>{throw EvalError("Failed to import app_core/kekule.mjs for testing")});
+
+// A virtual inventory
+let vinv;
 
 xdescribe("Given that the user is on the chemicals tab...", function(){
 
@@ -181,7 +185,7 @@ xdescribe("Given that the user is on the chemicals tab...", function(){
 
 
 
-xdescribe("Given that the user is on the apparatuses tab", function(){
+describe("Given that the user is on the apparatuses tab", function(){
     xdescribe("…and viewing multiple apparatuses", function(){
         xit("When the user has not put in any query filters, then the list of all apparatuses in the inventory is shown in alphabetical order", function(){
             fail("Not implemented");
@@ -272,14 +276,40 @@ xdescribe("Given that the user is on the apparatuses tab", function(){
         });
     });
 
-    xdescribe("…and adding an apparatus", function(){
+    describe("…and adding an apparatus", function(){
         xit("when the user is typing the name, and apparatuses with matching or similar names exist, then the program should suggest autocomplete options", function(){
             fail("Not implemented");
         });
 
-        xdescribe("when the user has finished typing…", function(){
-            xit("then the apparatus should be added", function(){
-                fail("Not implemented");
+        describe("when the user has finished typing…", function(){
+            it("then the apparatus should be added", function(){
+                vinv = new K.Inventory();
+
+                let appa1 = new K.Apparatus();
+                appa1.name = "A";
+                let appa2 = new K.Apparatus();
+                appa2.name = "C";
+                let appa3 = new K.Apparatus();
+                appa3.name = "B";
+                let appa4 = new K.Apparatus();
+                appa4.name = "B";
+                let appa5 = new K.Apparatus();
+                appa5.name = "E";
+
+                vinv.appaHistories.doAction(new K.AddAction(appa1, vinv));
+                vinv.appaHistories.doAction(new K.AddAction(appa2, vinv));
+                vinv.appaHistories.doAction(new K.AddAction(appa3, vinv));
+                vinv.appaHistories.doAction(new K.AddAction(appa4, vinv));
+                vinv.appaHistories.doAction(new K.AddAction(appa5, vinv));
+
+                let accumulator = "";
+
+                for (let i of vinv.apparatuses)
+                {
+                    accumulator += i.name;
+                }
+
+                expect(accumulator).toBe("ABBCE");
             });
 
             xit("and apparatuses with matching names exist, and they have tags assigned to them, then automatically suggest these tags", function(){

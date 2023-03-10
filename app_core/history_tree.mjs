@@ -77,7 +77,7 @@ class HistoryTree
 {
     // The current node of the tree
     /**@type {Node} */
-    #cur_node;
+    #cur_node = new Node(null);
 
     
     // Size of the history tree, declared with # to prevent accidental writing
@@ -114,7 +114,7 @@ class HistoryTree
             this.#cur_node.connections.push(newNode);
 
             // Switch the current node
-            this.#cur_node = this.#cur_node.connections[this.#cur_node.connections.length - 1];
+            this.#cur_node = this.#cur_node.connections[this.#cur_node.connections.length - 1].descNode;
 
             // Increase the tree size
             this.#size++;
