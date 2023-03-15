@@ -5,7 +5,7 @@
 
 import { HistoryTree } from "./history_tree.mjs";
 import { GHSC } from "../ghs_data/ghs_data.mjs";
-import { compRecs, sortedAdd } from "./utilities.mjs";
+import { compRecs, sortedAdd, MapTools } from "./utilities.mjs";
 
 /** Class representing an abstract record that contains a name and a "Last Edited" date. */
 class Record
@@ -134,6 +134,84 @@ class Action
         throw ReferenceError("perform() is not overloaded.");
     }
 
+    // Shorthand for the full sortedAdd implementation
+    #halfAdd(item, source)
+    {
+        return sortedAdd(item, source, compRecs);
+    }
+
+    // Shorthand for item/subitem adding
+    _add(item)
+    {
+        // Add chemical
+        if (item instanceof Chemical)
+        {
+            this.majorLocation = this.#halfAdd(item, this.source.chemicals);
+            MapTools.register(this.source, this.majorLocation);
+        }
+        // Add specific chemical
+        else if (item instanceof SpecificChemical)
+        {
+            this.minorLocation = this.#halfAdd(item, this.source.chemicals[this.majorLocation]);
+        }
+        // Add apparatus
+        else if (item instanceof Apparatus)
+        {
+            this.majorLocation = this.#halfAdd(item, this.source.apparatuses);
+            MapTools.register(this.source, this.majorLocation);
+        }
+        // Add specific apparatus
+        else if (item instanceof SpecificApparatus)
+        {
+            this.minorLocation = this.#halfAdd(item, this.source.apparatuses[this.majorLocation]);
+        }
+        else
+        {
+            throw EvalError("Invalid type of added object.");
+        }
+    }
+
+    // Shorthand for item/subitem deleting
+    _delete(item)
+    {
+        // Delete chemical
+        if (item instanceof Chemical)
+        {
+            this.source.chemicals.splice(this.majorLocation, 1);
+            MapTools.deregister(this.source.chemicalsMap, this.majorLocation);
+        }
+        // Delete specific chemical
+        else if (item instanceof SpecificChemical)
+        {
+            this.source.chemicals[this.majorLocation].subitems[this.minorLocation].splice(this.minorLocation, 1);
+        }
+        // Delete apparatus
+        else if (item instanceof Apparatus)
+        {
+            this.source.apparatuses.splice(this.majorLocation, 1);
+            MapTools.deregister(this.source.apparatusesMap, this.majorLocation);
+        }
+        // Delete specific apparatus
+        else if (item instanceof SpecificApparatus)
+        {
+            this.source.apparatuses[this.majorLocation].subitems[this.minorLocation].splice(this.minorLocation, 1);
+        }
+        else
+        {
+            throw EvalError("Invalid type of added object.");
+        }
+    }
+
+    get performFullAdd()
+    {
+        return this._add;
+    }
+
+    get performFullDelete()
+    {
+        return this._delete;
+    }
+
     /**
      * Create an action.
      * @param {Inventory} source The source inventory to perform the action.
@@ -172,59 +250,13 @@ class AddAction extends Action
     // Unperform the adding
     unperform()
     {
-        // Delete chemical
-        if (this.added instanceof Chemical)
-        {
-            this.source.chemicals.splice(this.majorLocation, 1);
-        }
-        // Delete specific chemical
-        else if (this.added instanceof SpecificChemical)
-        {
-            this.source.chemicals[this.majorLocation].subitems[this.minorLocation].splice(this.minorLocation, 1);
-        }
-        // Delete apparatus
-        else if (this.added instanceof Apparatus)
-        {
-            this.source.apparatuses.splice(this.majorLocation, 1);
-        }
-        // Delete specific apparatus
-        else if (this.added instanceof SpecificApparatus)
-        {
-            this.source.apparatuses[this.majorLocation].subitems[this.minorLocation].splice(this.minorLocation, 1);
-        }
-        else
-        {
-            throw EvalError("Invalid type of added object.");
-        }
+        this.performFullDelete(this.added);
     }
 
     // Perform the adding
     perform()
     {
-        // Add chemical
-        if (this.added instanceof Chemical)
-        {
-            this.majorLocation = sortedAdd(this.added, this.source.chemicals, compRecs);
-        }
-        // Add specific chemical
-        else if (this.added instanceof SpecificChemical)
-        {
-            this.minorLocation = sortedAdd(this.added, this.source.chemicals[this.majorLocation], compRecs);
-        }
-        // Add apparatus
-        else if (this.added instanceof Apparatus)
-        {
-            this.majorLocation = sortedAdd(this.added, this.source.apparatuses, compRecs);
-        }
-        // Add specific apparatus
-        else if (this.added instanceof SpecificApparatus)
-        {
-            this.minorLocation = sortedAdd(this.added, this.source.apparatuses[this.majorLocation], compRecs);
-        }
-        else
-        {
-            throw EvalError("Invalid type of added object.");
-        }
+        this.performFullAdd(this.added);
     }
 }
 
@@ -256,10 +288,26 @@ class DeleteAction extends Action
      * Create an DeleteAction.
      * @param {Item | SubItem} obj The object to delete.
      */
-    constructor(obj)
+    constructor(obj, source, majorLoc)
     {
-        super();
+        super(source);
         this.deleted = obj;
+        if (obj instanceof SubItem)
+        {
+            this.majorLocation = majorLoc;
+        }
+    }
+
+    // Unperform the deletion
+    unperform()
+    {
+        this.performFullAdd(this.deleted);
+    }
+
+    // Perform the deletion
+    perform()
+    {
+        this.performFullDelete(this.deleted);
     }
 }
 
@@ -310,7 +358,12 @@ class Chemical extends Item
      * @type {Array<GHSCode>}
      */
     GHSCodes = [];
-    NFPADiamond;
+
+    /**
+     * The NFPA 704 Diamond attached to this chemical.
+     * @type {NFPADiamond}
+     */
+    NFPADiamond = new NFPADiamond();
 }
 
 /** Class representing a specific chemical. */
@@ -594,8 +647,8 @@ class Inventory
     chemicals = [];
 
     /**
-     * The map of UUIDs to "Chemical" object references
-     * @type {Map<string, Chemical>}
+     * The map of UUIDs to indexes to the "chemicals" array
+     * @type {Map<string, number>}
      */
     chemicalsMap = new Map();
 
@@ -606,8 +659,8 @@ class Inventory
     apparatuses = [];
 
     /**
-     * The map of UUIDs to "Apparatus" object references
-     * @type {Map<string, Apparatus>}
+     * The map of UUIDs to indexes to the "apparatuses" array
+     * @type {Map<string, number>}
      */
     apparatusesMap = new Map();
 
@@ -632,7 +685,7 @@ class Inventory
      * Compare between two inventories
      * @param {Inventory} a the first inventory
      * @param {Inventory} b the second inventory
-     * @return {Object<Array<Action>, Array<Action>>} the list of actions to apply to the first inventory to get the second inventory
+     * @return {Array<Action>} the list of actions to apply to the first inventory to get the second inventory
      */
     static compare(a, b)
     {

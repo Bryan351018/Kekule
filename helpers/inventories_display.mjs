@@ -3,13 +3,13 @@
  * @module helpers/inventories_display
  */
 
-import { current_inventory } from "../app_core/base.mjs";
+import { current_inventory, InventoryTools } from "../app_core/base.mjs";
+import { requestDownload } from "../app_core/utilities.mjs";
 
 /**
  * Update the inventory display.
  */
-function updateDisplay()
-{
+function updateDisplay() {
     // Chemical entries
     document.getElementById("inv-attr-chemcount").innerText = current_inventory.chemicals.length;
     // Specific chemical entries (TODO)
@@ -24,4 +24,10 @@ function updateDisplay()
     document.getElementById("inv-attr-version").innerText = `${current_inventory.majorVer}.${current_inventory.minorVer}`;
 }
 
-window.onload = updateDisplay;
+// Setting up event handlers
+document.getElementById("inv-save").addEventListener("click", () => 
+{
+    requestDownload(new File([InventoryTools.serialize(current_inventory)]), "test.aki");
+});
+
+updateDisplay();
