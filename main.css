@@ -22,3 +22,8 @@ body.framed{
 .inline-menu-item {
     font-family: 'Courier New', Courier, monospace;
 }
+
+#file-in
+{
+    display: none;
+}

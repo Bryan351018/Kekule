@@ -13,11 +13,26 @@ let formulaDispEl = document.getElementById("formula-display");
 // Molecular formula editing element
 let formulaEditEl = document.getElementById("formula-editor");
 
-// Attach event handler for chemical name
-nameEditEl.addEventListener("input", (event) =>
+//If this module is used inside the chemical editor
+// (As opposed to the chemicals main display table)
+if (nameEditEl && formulaEditEl)
 {
-    nameDispEl.innerText = event.target.value;
-})
+    // Attach event handler for chemical name
+    nameEditEl.addEventListener("input", (event) =>
+    {
+        nameDispEl.innerText = event.target.value;
+    }) 
+    // Attach event handler for molecular formula
+    formulaEditEl.addEventListener("input", (event) => 
+    {
+        formulaEditEl.value = parseFormula(event.target.value, "inline");
+        formulaDispEl.innerHTML = parseFormula(event.target.value, "html");
+    })
+}
+else
+{
+    console.debug("Editing elements not found, assuming use outside editor")
+}
 
 /** Function for parsing a molecular formula
  * @param {string} formula The molecular formula
@@ -181,9 +196,6 @@ function parseFormula(formula, format)
     }
 }
 
-// Attach event handler for molecular formula
-formulaEditEl.addEventListener("input", (event) => 
-{
-    formulaEditEl.value = parseFormula(event.target.value, "inline");
-    formulaDispEl.innerHTML = parseFormula(event.target.value, "html");
-})
+
+
+export { parseFormula }

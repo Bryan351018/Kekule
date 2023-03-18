@@ -3,7 +3,7 @@
  * @module app_core/utilities
  */
 
-import { Record } from "./kekule.mjs";
+import { Record, Item, Inventory } from "./kekule.mjs";
 
 /**
  * Add an element into an array, so that the array is sorted. Returns the integral location of the added element after operation.
@@ -117,31 +117,30 @@ class MapTools
     /**
      * Register an index.
      * @param {Map<string, number>} collection The map to perform the operation on.
-     * @param {number} index The index to register.
+     * @param {Item} item The item to register.
+     * @param {Inventory} inventory The inventory of the map, to request an ID from.
      */
-    static register(collection, index)
+    static register(collection, item, inventory)
     {
-        // Request a new UUID, assign it to the index, and store it to the map.
-        collection.set(crypto.randomUUID(), index);
+        const reqID = inventory.nextID.toString(36);
+
+        // Request a new ID, assign it to the index, and store it to the map.
+        collection.set(reqID, item);
+
+        item.ID = reqID;
+
+        // Increment the ID
+        inventory.nextID++;
     }
 
     /**
      * De-register an index.
      * @param {Map<string, number>} collection The map to perform the operation on.
-     * @param {number} index The index to register.
+     * @param {Item} item The item to deregister.
      */
-    static deregister(collection, index)
+    static deregister(collection, item)
     {
-        // Find every index in the map that is grater than "index", then decrement them
-        for (let pair of collection)
-        {
-            // If the index on map is greater than the index given in the parameter
-            if (pair[1] > index)
-            {
-                // Decrement it
-                collection.set(pair[0], pair[1] - 1);
-            }
-        }
+        collection.delete(item.ID);
     }
 }
 
@@ -173,4 +172,34 @@ function requestDownload(obj, name)
     URL.revokeObjectURL(objURL);
 }
 
-export { sortedAdd, compRecs, MapTools, requestDownload }
+// The ID of the input element
+const inputElId = "file-in";
+
+let inputEl;
+
+/**
+ * Initializes the document reference to a frame. Used to find the <input> element.
+ * @param {Document} doc The document object.
+ */
+function initDocRef(doc)
+{
+    inputEl = doc.getElementById(inputElId);
+
+    // Triggers if there is a file input
+    inputEl.addEventListener("change", () => 
+    {
+        console.log(inputEl.files);
+    });
+}
+
+/**
+ * Request opening a file
+ * @param {string} ext The extension of the inputted file (e.g. ".aki", ".csv")
+ */
+function requestOpen(ext)
+{
+    inputEl.setAttribute("accept", ext);
+    inputEl.click();
+}
+
+export { sortedAdd, compRecs, MapTools, requestDownload, requestOpen, initDocRef }

@@ -19,3 +19,25 @@
 {
     cursor: pointer;
 }
+
+#notes
+{
+    width: 100%;
+    height: 14em;
+}
+
+.ghs-pictogram
+{
+    transform: scale(0.5);
+}
+
+#ghs-pictograms .col .card
+{
+    width: 8em;
+}
+
+h2, h3
+{
+    font-family: "Courier New", Courier, monospace;
+    font-weight: bold;
+}

@@ -31,7 +31,6 @@
 
     <!-- Main form -->
 
-
     <form>
         <!-- Divider -->
         <div class="container text-center">
@@ -57,9 +56,11 @@
                             <span onclick="alert('hello')" class="badge rounded-pill text-bg-primary">+</span>
                         </div>
                     </div>
-                    <!-- Specific chemicals -->
-                    <div class="mb-3">
 
+                    <div class="mb-3">
+                        <p>Notes:</p>
+                        <!-- Text area for Notes -->
+                        <textarea id="notes" name="notes"></textarea>
                     </div>
                 </div>
                 <!-- Column 2: 2D molecular strcture -->
@@ -71,6 +72,7 @@
             </div>
         </div>
 
+        <!-- Specific chemicals -->
         <table class="table mb-0">
             <thead>
                 <tr>
@@ -98,6 +100,62 @@
                 </tr>
             </tbody>
         </table>
+
+        <h2>Hazards information (See <i class="bi bi-link-45deg"></i><a href="https://pubchem.ncbi.nlm.nih.gov/compound/313#datasheet=LCSS">LCSS</a>&nbsp;<i class="bi bi-link-45deg"></i><a href="https://pubchem.ncbi.nlm.nih.gov/compound/313#datasheet=LCSS&section=Cleanup-and-Disposal&fullscreen=true">Waste Disposal Information</a>)</h2>
+
+        <!-- GHS information -->
+        <h3>GHS (Signal: Danger)</h3>
+        <!-- GHS info: Pictograms -->
+        <div class="container text-center">
+            <div class="row" id="ghs-pictograms">
+                <div class="col">
+                    <div class="card">
+                        <img src="https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS05.svg" class="ghs-pictogram" alt="Corrosive">
+                        Corrosive
+                    </div>
+                </div>
+                <div class="col">
+                    <div class="card">
+                        <img src="https://pubchem.ncbi.nlm.nih.gov/images/ghs/GHS06.svg" class="ghs-pictogram" alt="Acute Toxic">
+                        Acute Toxic
+                    </div>
+                </div>
+                <div class="col">
+                    <div class="card">
+                        <img src="../images/GHSAdd.svg" class="ghs-pictogram" alt="(Add hazard)">
+                        (Add hazard)
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- GHS info: Hazard statements -->
+        <ul class="list-group" id="ghs-hazards">
+            <li class="list-group-item list-group-item-danger">H314: Causes severe skin burns and eye damage [Danger]</li>
+            <li class="list-group-item list-group-item-danger">H331: Toxic if inhaled [Danger]</li>
+            <li class="list-group-item list-group-item-info">P260: Do not breathe dust/fume/gas/mist/vapors/spray.</li>
+            <li class="list-group-item list-group-item-info">P261: Avoid breathing dust/fume/gas/mist/vapors/spray.</li>
+            <li class="list-group-item">+ Add item...</li>
+        </ul>
+        
+
+        <!-- NFPA 704 diamond information -->
+        <h3>NFPA 704</h3>
+        <div class="container text-center">
+            <div class="row">
+                <div class="col-3" id="nfpa-diamond">
+                    <img src="https://pubchem.ncbi.nlm.nih.gov/image/nfpa.cgi?code=301" class="icon" alt="3-0-1">
+                </div>
+                <div class="col-9">
+                    <ul class="list-group">
+                        <li class="list-group-item">Health rating: 3</li>
+                        <li class="list-group-item">Fire rating: 0</li>
+                        <li class="list-group-item">Instability rating: 1</li>
+                        <li class="list-group-item">Special Considerations: NONE</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        
     </form>
 
     <!-- Bootstrap library, JS component -->

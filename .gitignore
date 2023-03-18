@@ -3,6 +3,5 @@ node_modules/
 package.json
 package-lock.json
 .eslintrc.js
-key.pem
-cert.pem
+vscode-firefox-debug.log
 start

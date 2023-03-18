@@ -49,29 +49,31 @@ class InventoryTools
             chemicals: inventory.chemicals,
             apparatuses: inventory.apparatuses,
             chemHistories: inventory.chemHistories,
-            appaHistories: inventory.appaHistories
+            appaHistories: inventory.appaHistories,
+            nextID: inventory.nextID.toString(10) // ID is converted to base-10 string for compatibility
         };
-
-        // Convert chemical map to keyed object
-        let tempChemMap = {};
-        inventory.chemicalsMap.forEach((value, key) => 
-        {
-            tempChemMap[key] = value;
-        })
-
-        // Convert apparatus map to keyed object
-        let tempAppaMap = {};
-        inventory.apparatusesMap.forEach((value, key) => 
-        {
-            tempAppaMap[key] = value;
-        })
-
-        // Combine
-        tempobj.chemicalsMap = tempChemMap;
-        tempobj.apparatusesMap = tempAppaMap;
 
         // Serialize
         return JSON.stringify(tempobj);
+    }
+
+    /**
+     * Attempt to convert a JSON string to an inventory object in memory.
+     * @param {string} str The JSON string to parse.
+     * @returns {Inventory?} The resulting inventory, or null if the deserialization was unsuccessful.
+     */
+    static deserialize(str)
+    {
+        // Create temporary object
+        let tempobj = JSON.parse(str);
+
+        // Version check (The inventory should have a major version that is not greater than 1)
+        if (!tempobj.majorVer || tempobj.majorVer > 1)
+        {
+            return null;
+        }
+
+        
     }
 }
 

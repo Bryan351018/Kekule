@@ -67,10 +67,10 @@ class Item extends Record
     notes = "";
 
     /**
-     * UUID assigned to the item.
+     * BigInt-based base-36 sequential ID assigned to the item.
      * @type {string}
      */
-    UUID;
+    ID;
 
     /**
      * Add a sub-item to the end of the list of sub-items.
@@ -78,7 +78,7 @@ class Item extends Record
      */
     addSubItem(item)
     {
-        this.subitems.push(item);
+        sortedAdd(item, this.subitems, compRecs);
 
         // TODO: register adding to history
     }
@@ -147,7 +147,7 @@ class Action
         if (item instanceof Chemical)
         {
             this.majorLocation = this.#halfAdd(item, this.source.chemicals);
-            MapTools.register(this.source, this.majorLocation);
+            MapTools.register(this.source.chemicalsMap, item, this.source);
         }
         // Add specific chemical
         else if (item instanceof SpecificChemical)
@@ -158,7 +158,7 @@ class Action
         else if (item instanceof Apparatus)
         {
             this.majorLocation = this.#halfAdd(item, this.source.apparatuses);
-            MapTools.register(this.source, this.majorLocation);
+            MapTools.register(this.source.apparatusesMap, item, this.source);
         }
         // Add specific apparatus
         else if (item instanceof SpecificApparatus)
@@ -178,7 +178,7 @@ class Action
         if (item instanceof Chemical)
         {
             this.source.chemicals.splice(this.majorLocation, 1);
-            MapTools.deregister(this.source.chemicalsMap, this.majorLocation);
+            MapTools.deregister(this.source.chemicalsMap, item);
         }
         // Delete specific chemical
         else if (item instanceof SpecificChemical)
@@ -189,7 +189,7 @@ class Action
         else if (item instanceof Apparatus)
         {
             this.source.apparatuses.splice(this.majorLocation, 1);
-            MapTools.deregister(this.source.apparatusesMap, this.majorLocation);
+            MapTools.deregister(this.source.apparatusesMap, item);
         }
         // Delete specific apparatus
         else if (item instanceof SpecificApparatus)
@@ -264,15 +264,38 @@ class AddAction extends Action
 class EditAction extends Action
 {
     /**
-     * The item or subitem before the edit
-     * @type {Item | SubItem}
+     * The property of the object being edited
+     * @type {string}
+     */
+    property;
+
+    /**
+     * The property value before the edit
+     * @type {any}
      */
     from;
     /**
-     * The item or subitem after the edit
-     * @type {Item | SubItem}
+     * The property value after the edit
+     * @type {any}
      */
     to;
+
+    /**
+     * Create an EditAction.
+     * @param {Inventory} source The source inventory to perform the action.
+     * @param {number} majorLoc The major location inside an Item array
+     * @param {number?} minorLoc The minor location inside an Item array, if the object edited is a SubItem
+     */
+    constructor(source, majorLoc, minorLoc)
+    {
+        super(source);
+        this.majorLocation = majorLoc;
+        if (minorLoc)
+        {
+            this.minorLocation = minorLoc;
+        }
+    }
+
 }
 
 /** Class representing an action of deleting a data record. */
@@ -333,7 +356,8 @@ class Tag
     }
 
     /**
-     * The RGB color of the tag
+     * The RGB color of the tag, represented as "#" with a hexademical value
+     * @type {string}
      */
     color;
 }
@@ -364,6 +388,13 @@ class Chemical extends Item
      * @type {NFPADiamond}
      */
     NFPADiamond = new NFPADiamond();
+
+    // 
+    /**
+     * Sub-items are of type SpecificChemical (redeclaration)
+     * @type {Array<SpecificChemical>}
+     */
+    subitems = [];
 }
 
 /** Class representing a specific chemical. */
@@ -616,12 +647,27 @@ class NFPADiamond
 class Apparatus extends Item
 {
     // Nothing is in here! Everything is inherited from "Item".
+
+     /**
+     * Sub-items are of type SpecificApparatus (redeclaration)
+     * @type {Array<SpecificApparatus>}
+     */
+     subitems = [];
 }
 
 /** Class representing a specific apparatus. */
 class SpecificApparatus extends SubItem
 {
-    count;
+    /**
+     * The count of this specific apparatus.
+     * @type {number}
+     */
+    count = 0;
+
+    /**
+     * The specifications of this specific apparatus.
+     * @type {string}
+     */
     specifications = "";
 }
 
@@ -647,8 +693,8 @@ class Inventory
     chemicals = [];
 
     /**
-     * The map of UUIDs to indexes to the "chemicals" array
-     * @type {Map<string, number>}
+     * The map of IDs to chemical references to the "chemicals" array
+     * @type {Map<string, Chemical>}
      */
     chemicalsMap = new Map();
 
@@ -659,8 +705,8 @@ class Inventory
     apparatuses = [];
 
     /**
-     * The map of UUIDs to indexes to the "apparatuses" array
-     * @type {Map<string, number>}
+     * The map of IDs to apparatus references to the "apparatuses" array
+     * @type {Map<string, Apparatus>}
      */
     apparatusesMap = new Map();
 
@@ -675,6 +721,12 @@ class Inventory
      * @type {HistoryTree}
     */
     appaHistories = new HistoryTree();
+
+    /**
+     * The next avilable sequential ID to assign to a new Item (Chemical or Apparatus)
+     * @type {BigInt}
+     */
+    nextID = 0n;
 
     /**
      * Create an inventory.
@@ -724,7 +776,7 @@ class Inventory
 
     removeChemical(index)
     {
-        
+
     }
 
     removeApparatus(index)
@@ -739,5 +791,5 @@ export
     Chemical, SpecificChemical, Container, GHSPictogram, GHSCode,
     Apparatus, SpecificApparatus,
     Inventory,
-    Record
+    Record, Item
 }
