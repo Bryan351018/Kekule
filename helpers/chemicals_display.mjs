@@ -262,7 +262,7 @@ function updateDisplay(criteria) {
 
         // 2. Chemical name
         anchorNode = document.createElement("a");
-        anchorNode.setAttribute("href", `./frames/chemical_editor.html?id=${item.ID}`);
+        anchorNode.setAttribute("href", `${ROOT_URL}/frames/chemical_editor.html?id=${item.ID}`);
         anchorNode.setAttribute("target", "_top");
         anchorNode.appendChild(document.createTextNode(item.name));
         addCol("td", {}, anchorNode);
@@ -508,5 +508,5 @@ addEl.addEventListener("click", (event) =>
 {
     // Redirect to add page
     event.preventDefault();
-    window.location.replace(`./frames/chemical_editor.html?add=${encodeURI(searchEl.value)}`);
+    window.location.replace(`${ROOT_URL}/frames/chemical_editor.html?add=${encodeURI(searchEl.value)}`);
 });

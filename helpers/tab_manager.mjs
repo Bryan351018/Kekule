@@ -3,6 +3,7 @@
  * @module helpers/tab_manager
  */
 
+import { ROOT_URL } from "../app_core/root_url.mjs";
 
 // Find the iframe that is displayed on the main page
 let frame = document.getElementById("main-frame");
@@ -21,7 +22,7 @@ function setMainFrame(name)
 {
     // If the parameter is not specified, the name defaults to the value in sessionStorage
     if (name || sessionFrameName)
-        frame.setAttribute("src", `./frames/${name ?? sessionFrameName}.html`);
+        frame.setAttribute("src", `${ROOT_URL}/frames/${name ?? sessionFrameName}.html`);
     else
     {
         throw Error("Main frame name not specified, and not found in session storage.");
