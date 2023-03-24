@@ -7,6 +7,7 @@ import { getCIDAndFormula, getHazards, getContrast } from "../app_core/web_looku
 import { GHSC } from "../ghs_data/ghs_data.mjs";
 import { current_inventory, setInv, refreshInv } from "../app_core/base.mjs";
 import { Chemical, SpecificChemical, Container, Tag, AddAction, EditAction, DeleteAction } from "../app_core/kekule.mjs";
+import { ROOT_URL } from "../app_core/root_url.mjs";
 
 // Refresh inventory
 await refreshInv();
@@ -630,7 +631,7 @@ if (addName) {
         current_inventory.chemHistories.doAction(new AddAction(chem, current_inventory));
         setInv(current_inventory);
 
-        window.location.replace("/");
+        window.location.replace(ROOT_URL);
     })
 }
 // Edit mode
@@ -721,7 +722,7 @@ else if (editID) {
         setInv(current_inventory);
 
         // Redirect to home page
-        window.location.replace("/");
+        window.location.replace(ROOT_URL);
     })
 
     // When the delete button is clicked, ask for confirmation and delete chemical
@@ -735,7 +736,7 @@ else if (editID) {
             setInv(current_inventory);
 
             // Redirect to home page
-            window.location.replace("/");
+            window.location.replace(ROOT_URL);
         }
     })
 }

@@ -7,6 +7,7 @@
 import { refreshInv, current_inventory } from "../app_core/base.mjs";
 import { parseFormula } from "./chemical_editor.mjs";
 import { getSearchSuggestions } from "../app_core/web_lookup.mjs";
+import { ROOT_URL } from "../app_core/root_url.mjs";
 
 // Get chemicals table
 let chemTable = document.getElementById("chemicals-table");
@@ -507,5 +508,5 @@ addEl.addEventListener("click", (event) =>
 {
     // Redirect to add page
     event.preventDefault();
-    window.location.replace(`/frames/chemical_editor.html?add=${encodeURI(searchEl.value)}`);
+    window.location.replace(`${ROOT_URL}/frames/chemical_editor.html?add=${encodeURI(searchEl.value)}`);
 });
