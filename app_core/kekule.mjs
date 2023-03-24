@@ -7,6 +7,84 @@ import { HistoryTree } from "./history_tree.mjs";
 import { GHSC } from "../ghs_data/ghs_data.mjs";
 import { compRecs, sortedAdd, MapTools } from "./utilities.mjs";
 
+
+/**
+ * Help construct a classed object from a class-less object.
+ * @param {object} _this The "this" object pointer of a class.
+ * @param {object} initDict The class-less object to initialize the classed object from.
+ */
+function initObj(_this, initDict)
+{
+    // If an initialization dictionary is given
+    if (initDict)
+    {
+        // For each property given
+        for (const key of Object.keys(initDict))
+        {
+            // {<Property name>: {constructor: <Class>, isArray: <Boolean>}};
+
+            // If the class's init list exists
+            if (_this.initList)
+            {
+                // If init steps exist for a particular property
+                if (_this.initList[key])
+                {
+                    // If the property is an array of objects
+                    if (Array.isArray(initDict[key]))
+                    {
+                        // Clear the array
+                        if (_this[key])
+                        {
+                            _this[key].splice(0);
+                        }
+                        else
+                        {
+                            _this[key] = [];
+                        }
+
+                        // Iteration
+                        for (const obj of initDict[key])
+                        {
+                            _this[key].push(new _this.initList[key].constructor(obj))
+                        }
+                    }
+                    // If the property is an object
+                    else
+                    {
+                        // Catch for BigInt
+                        try
+                        {
+                            _this[key] = new _this.initList[key].constructor(initDict[key]);
+                        }
+                        catch (e)
+                        {
+                            if (e instanceof TypeError)
+                            {
+                                // Initialize a BigInt
+                                _this[key] = _this.initList[key].constructor(initDict[key]);
+                            }
+                            else
+                            {
+                                throw e;
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    // Non-class assignment
+                    _this[key] = structuredClone(initDict[key]);
+                }
+            }
+            else
+            {
+                // Non-class assignment
+                _this[key] = structuredClone(initDict[key]);
+            }
+        }
+    }
+}
+
 /** Class representing an abstract record that contains a name and a "Last Edited" date. */
 class Record
 {
@@ -39,6 +117,11 @@ class Record
     {
         return this.#name;
     }
+
+    constructor(dict)
+    {
+        initObj(this, dict);
+    }
 }
 
 /** Class representing an abstract sub-item that contains tags. */
@@ -49,6 +132,18 @@ class SubItem extends Record
      * @type {Array<Tag>}
      */
     tags = [];
+
+    /**
+     * The initialization list for this class, to help with deserialization.
+     * @type {Object<string,Object<object,boolean>>}
+     */
+    initList = {tags: {constructor: Tag, isArray: true}};
+
+    constructor(dict)
+    {
+        super(dict);
+        initObj(this, dict)
+    }
 }
 
 /** Class representing an abstract item that contains sub-items. */
@@ -93,16 +188,37 @@ class Item extends Record
 
         // TODO: register removing to history
     }
+
+    /**
+     * The initialization list for this class, to help with deserialization.
+     * @type {Object<string,Object<object,boolean>>}
+     */
+    initList = {subitems: {constructor: SubItem, isArray: true}};
+
+    constructor(dict)
+    {
+        super(dict);
+        initObj(this, dict);
+    }
 }
 
 /** Class representing an action that can be done and undone. */
 class Action
 {
+    // Initialization list not included, as it will not be deserialized
+    // (same is true for AddAction, EditAction, and DeleteAction)
+
     /**
-     * Integral index of the action performed, on the Item array level.
-     * @type {number}
+     * Integral index or string ID of the action performed, on the Item array level.
+     * @type {number|string}
      */
     majorLocation = NaN;
+
+    /**
+     * Object that the actionn was being performed on.
+     * @type {Item | SubItem}
+     */
+    majorObj = null;
 
     /**
      * Integral index of the action performed, on the SubItem array level.
@@ -152,7 +268,12 @@ class Action
         // Add specific chemical
         else if (item instanceof SpecificChemical)
         {
-            this.minorLocation = this.#halfAdd(item, this.source.chemicals[this.majorLocation]);
+            this.minorLocation = this.#halfAdd(item, this.majorObj);
+        }
+        // Add container
+        else if (item instanceof Container)
+        {
+            this.majorObj.containers.push(item);
         }
         // Add apparatus
         else if (item instanceof Apparatus)
@@ -163,7 +284,7 @@ class Action
         // Add specific apparatus
         else if (item instanceof SpecificApparatus)
         {
-            this.minorLocation = this.#halfAdd(item, this.source.apparatuses[this.majorLocation]);
+            this.minorLocation = this.#halfAdd(item, this.majorObj);
         }
         else
         {
@@ -183,7 +304,13 @@ class Action
         // Delete specific chemical
         else if (item instanceof SpecificChemical)
         {
-            this.source.chemicals[this.majorLocation].subitems[this.minorLocation].splice(this.minorLocation, 1);
+            this.majorObj.subitems.splice(this.minorLocation, 1);
+        }
+        // Delete container
+        else if (item instanceof Container)
+        {
+            // Delete from the back
+            this.majorObj.containers.splice(this.minorLocation, 1);
         }
         // Delete apparatus
         else if (item instanceof Apparatus)
@@ -194,7 +321,7 @@ class Action
         // Delete specific apparatus
         else if (item instanceof SpecificApparatus)
         {
-            this.source.apparatuses[this.majorLocation].subitems[this.minorLocation].splice(this.minorLocation, 1);
+            this.majorObj.subitems.splice(this.minorLocation, 1);
         }
         else
         {
@@ -233,17 +360,22 @@ class AddAction extends Action
 
     /**
      * Create an AddAction.
-     * @param {Item | SubItem} obj The object to add.
+     * @param {Item | SubItem | Container} obj The object to add.
      * @param {Inventory} source The source inventory to perform the action.
-     * @param {number?} majorLoc The major location inside an Item array, if the object added is a SubItem
+     * @param {Item | SubItem | null} majorObj The major location inside an Item array, if the object added is a SubItem or a Container
      */
-    constructor(obj, source, majorLoc)
+    constructor(obj, source, majorObj)
     {
         super(source);
         this.added = obj;
         if (obj instanceof SubItem)
         {
-            this.majorLocation = majorLoc;
+            this.majorObj = majorObj;
+        }
+        else if (obj instanceof Container)
+        {
+            // Containers are always appended
+            this.majorObj = majorObj;
         }
     }
 
@@ -283,19 +415,30 @@ class EditAction extends Action
     /**
      * Create an EditAction.
      * @param {Inventory} source The source inventory to perform the action.
-     * @param {number} majorLoc The major location inside an Item array
-     * @param {number?} minorLoc The minor location inside an Item array, if the object edited is a SubItem
+     * @param {Item | SubItem | Container} majorObj The Object that is being edited
+     * @param {string} property The string of the property name to edit
+     * @param {any} to The value of the edit
      */
-    constructor(source, majorLoc, minorLoc)
+    constructor(source, majorObj, property, to)
     {
         super(source);
-        this.majorLocation = majorLoc;
-        if (minorLoc)
-        {
-            this.minorLocation = minorLoc;
-        }
+        this.majorObj = majorObj;
+        this.property = property;
+        this.from = majorObj[this.property];
+        this.to = to;
     }
 
+    // Unperform the action
+    unperform()
+    {
+        this.majorObj[this.property] = this.from;
+    }
+
+    // Performm the action
+    perform()
+    {
+        this.majorObj[this.property] = this.to;
+    }
 }
 
 /** Class representing an action of deleting a data record. */
@@ -310,14 +453,38 @@ class DeleteAction extends Action
     /**
      * Create an DeleteAction.
      * @param {Item | SubItem} obj The object to delete.
+     * @param {Inventory} source The source inventory to perform the action.
+     * @param {Item | SubItem | null} majorObj The major location inside an Item array, if the object deleted is a SubItem or a Container
+     * @param {number} minorLoc The minor location, if the object deleted is a SubItem
      */
-    constructor(obj, source, majorLoc)
+    constructor(obj, source, majorObj, minorLoc)
     {
         super(source);
         this.deleted = obj;
-        if (obj instanceof SubItem)
+        
+
+        // Find the major location
+        if (obj instanceof Chemical)
         {
-            this.majorLocation = majorLoc;
+            this.majorLocation = this.source.chemicals.findIndex((item) => item.ID == obj.ID);
+        }
+        else if (obj instanceof SpecificChemical || obj instanceof SpecificApparatus)
+        {
+            this.minorLocation = minorLoc;
+            this.majorObj = majorObj;
+        }
+        else if (obj instanceof Container)
+        {
+            this.minorLocation = minorLoc;
+            this.majorObj = majorObj;
+        }
+        else if (obj instanceof Apparatus)
+        {
+            this.majorLocation = this.source.apparatuses.findIndex((item) => {item.ID == obj.ID});
+        }
+        else
+        {
+            throw TypeError(`Attempted to create a DeleteAction on an invalid object.`)
         }
     }
 
@@ -360,6 +527,11 @@ class Tag
      * @type {string}
      */
     color;
+
+    constructor(dict)
+    {
+        initObj(this, dict);
+    }
 }
 
 /** Class representing a chemical. */
@@ -395,6 +567,24 @@ class Chemical extends Item
      * @type {Array<SpecificChemical>}
      */
     subitems = [];
+
+    /**
+     * The initialization list for this class, to help with deserialization.
+     * @type {Object<string,Object<object,boolean>>}
+     */
+    initList = 
+    {
+        GHSPictograms: {constructor: GHSPictogram, isArray: true},
+        GHSCodes: {constructor: GHSCode, isArray: true},
+        NFPADiamond: {constructor: NFPADiamond, isArray: false},
+        subitems: {constructor: SpecificChemical, isArray: true}
+    };
+
+    constructor(dict)
+    {
+        super(dict);
+        initObj(this, dict);
+    }
 }
 
 /** Class representing a specific chemical. */
@@ -411,6 +601,18 @@ class SpecificChemical extends SubItem
      * @type {string}
      */
     specifications = "";
+
+    /**
+     * The initialization list for this class, to help with deserialization.
+     * @type {Object<string,Object<object,boolean>>}
+     */
+    initList = {containers: {constructor: Container, isArray: true}};
+
+    constructor(dict)
+    {
+        super(dict);
+        initObj(this, dict);
+    }
 }
 
 /** Class representing a container. */
@@ -439,6 +641,11 @@ class Container
      * @type {string}
      */
     capacityUnit;
+
+    constructor(dict)
+    {
+        initObj(this, dict);
+    }
 }
 
 /** Class representing a GHS Pictogram. */
@@ -446,15 +653,6 @@ class GHSPictogram
 {
     // The identifier (1 to 9) of this GHS pictogram
     #identifier;
-
-    /**
-     * Create a GHS pictogram from a numeric identifier from 1 to 9.
-     * @param {number} id The identifier to set to.
-     */
-    constructor(id)
-    {
-        this.#identifier = id;
-    }
 
     /**
      * Set the identifier of this GHS pictogram.
@@ -524,6 +722,15 @@ class GHSPictogram
             default:
                 throw RangeError(`${this.#identifier} is not a valid GHS pictogram identifier.`);
         }
+    }
+
+    /**
+     * Create a GHS pictogram from a numeric identifier from 1 to 9.
+     * @param {Object<string, nummber>} dict The number in the form of {identifier: NUMBER}.
+     */
+    constructor(dict)
+    {
+        initObj(this, dict);
     }
 }
 
@@ -596,6 +803,11 @@ class GHSCode
     {
         return this.#prefix + this.#numeric;
     }
+
+    constructor(dict)
+    {
+        initObj(this, dict);
+    }
 }
 
 /** Class representing an NFPA 704 diamond. */
@@ -641,6 +853,11 @@ class NFPADiamond
     {
         
     }
+
+    constructor(dict)
+    {
+        initObj(this, dict);
+    }
 }
 
 /** Class representing an apparatus. */
@@ -648,11 +865,23 @@ class Apparatus extends Item
 {
     // Nothing is in here! Everything is inherited from "Item".
 
-     /**
+    /**
      * Sub-items are of type SpecificApparatus (redeclaration)
      * @type {Array<SpecificApparatus>}
      */
-     subitems = [];
+    subitems = [];
+
+    /**
+     * The initialization list for this class, to help with deserialization.
+     * @type {Object<string,Object<object,boolean>>}
+     */
+    initList = {subitems: {constructor: SpecificApparatus, isArray: true}};
+
+    constructor(dict)
+    {
+        super(dict);
+        initObj(this, dict);
+    }
 }
 
 /** Class representing a specific apparatus. */
@@ -669,6 +898,12 @@ class SpecificApparatus extends SubItem
      * @type {string}
      */
     specifications = "";
+
+    constructor(dict)
+    {
+        super(dict);
+        initObj(this, dict);
+    }
 }
 
 /** Class representing an inventory that contains chemicals, apparatuses, and miscallenous information like history. */
@@ -730,8 +965,12 @@ class Inventory
 
     /**
      * Create an inventory.
+     * @param {object?} dict Optional dictionary to create the inventory from
      */
-    constructor(){}
+    constructor(dict)
+    {
+        initObj(this, dict);
+    }
 
     /**
      * Compare between two inventories
@@ -764,25 +1003,16 @@ class Inventory
 
     }
 
-    addChemical(item)
+    /**
+     * The initialization list for this class, to help with deserialization.
+     * @type {Object<string,Object<object,boolean>>}
+     */
+    initList = 
     {
-        this.chemHistories.doAction(new AddAction(item));
-    }
-
-    addApparatus(item)
-    {
-        this.appaHistories.doAction(new AddAction(item));
-    }
-
-    removeChemical(index)
-    {
-
-    }
-
-    removeApparatus(index)
-    {
-        
-    }
+        chemicals: {constructor: Chemical, isArray: true},
+        apparatuses: {constructor: Apparatus, isArray: true},
+        nextID: {constructor: BigInt, isArray: false}
+    };
 }
 
 export

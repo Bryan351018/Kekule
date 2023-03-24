@@ -7,6 +7,7 @@ A web-based inventory that tracks chemicals and apparatuses
 + [Remix Icon](https://remixicon.com/): icon library
 + [Bootstrap](https://getbootstrap.com/): UI library
 + [idb-keyval](https://www.npmjs.com/package/idb-keyval): IndexedDB interface for offline storage
++ [PapaParse](https://github.com/mholt/PapaParse): CSV parser
 
 ## APIs and databases used
 + [PubChem](https://pubchem.ncbi.nlm.nih.gov/): chemical information

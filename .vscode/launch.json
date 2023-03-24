@@ -31,16 +31,7 @@
             "type": "firefox",
             "request": "attach",
             "url": "http://127.0.0.1:8080",
-            "webRoot": "${workspaceFolder}",
-            // "log": {
-            //     "fileName": "${workspaceFolder}/vscode-firefox-debug.log",
-            //     "fileLevel": {
-            //         "default": "Debug"
-            //     },
-            //     "consoleLevel": {
-            //         "default": "Warn"
-            //     }
-            // }
+            "webRoot": "${workspaceFolder}"
         }
     ]
 }

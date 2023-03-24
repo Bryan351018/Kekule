@@ -3,52 +3,114 @@
  * @module helpers/chemicals_display
  */
 
-import { Inventory, Chemical, SpecificChemical, Container, Tag, AddAction } from "../app_core/kekule.mjs";
-import { current_inventory } from "../app_core/base.mjs";
+// import { Inventory, Chemical, SpecificChemical, Container, Tag, AddAction } from "../app_core/kekule.mjs";
+import { refreshInv, current_inventory } from "../app_core/base.mjs";
 import { parseFormula } from "./chemical_editor.mjs";
+import { getSearchSuggestions } from "../app_core/web_lookup.mjs";
 
 // Get chemicals table
 let chemTable = document.getElementById("chemicals-table");
 
+// Main form
+let formEl = document.getElementById("main-form");
+
+// Search element
+let searchEl = document.getElementById("search-textfield");
+
+// Button to add a chemical
+let addEl = document.getElementById("add-chemical");
+
+// Chemical suggestions
+let suggestionListEl = document.getElementById("chemical-suggestions");
+
 // Testing data
-let a = new Chemical();
-a.name = "Hydrochloric acid";
-a.formula = "HCl";
-let a1 = new SpecificChemical();
-a1.name = "Hydrochloric acid";
-a1.specifications = "5 M";
-let a1c = new Container();
-a1c.count = 5;
-a1c.capacityUnit = "mL";
-a1c.unitCapacity = 90;
-a1c.remaining = 250;
-a1.containers.push(a1c);
-let a1t = new Tag();
-a1t.name = "test";
-a1t.color = "#005B00";
-let a2t = new Tag();
-a2t.name = "test2";
-a2t.color = "#AA5B00";
-a1.tags.push(a1t);
-a1.tags.push(a2t);
-a.addSubItem(a1);
-current_inventory.chemHistories.doAction(new AddAction(a, current_inventory));
-let b = new Chemical();
-b.name = "Copper sulfate heptahydrate";
-b.formula = "CuSO4*7H2O";
-current_inventory.chemHistories.doAction(new AddAction(b, current_inventory));
-let c = new Chemical();
-c.name = "Unknown #1";
-current_inventory.chemHistories.doAction(new AddAction(c, current_inventory));
+// let a = new Chemical();
+// a.name = "Hydrochloric acid";
+// a.formula = "HCl";
+// let a1 = new SpecificChemical();
+// a1.name = "Hydrochloric acid";
+// a1.specifications = "5 M";
+// let a1c = new Container();
+// a1c.count = 5;
+// a1c.capacityUnit = "mL";
+// a1c.unitCapacity = 90;
+// a1c.remaining = 250;
+// a1.containers.push(a1c);
+// let a1t = new Tag();
+// a1t.name = "test";
+// a1t.color = "#005B00";
+// let a2t = new Tag();
+// a2t.name = "test2";
+// a2t.color = "#AA5B00";
+// a1.tags.push(a1t);
+// a1.tags.push(a2t);
+// a.addSubItem(a1);
+// current_inventory.chemHistories.doAction(new AddAction(a, current_inventory));
+// let b = new Chemical();
+// b.name = "Copper sulfate heptahydrate";
+// b.formula = "CuSO4*7H2O";
+// current_inventory.chemHistories.doAction(new AddAction(b, current_inventory));
+// let c = new Chemical();
+// c.name = "Unknown #1";
+// current_inventory.chemHistories.doAction(new AddAction(c, current_inventory));
+
+// var current_inventory = new Inventory({
+//     chemicals: 
+//     [
+//         {
+//             name: "Copper sulfate heptahydrate",
+//             formula: "CuSO4*7H2O"
+//         },
+//         {
+//             name: "Hydrochloric acid",
+//             formula: "HCl",
+//             subitems: 
+//             [
+//                 {
+//                     name: "Hydrochloric acid",
+//                     specifications: "5 M",
+//                     containers:
+//                     [
+//                         {
+//                             count: 5,
+//                             capacityUnit: "mL",
+//                             remaining: 250
+//                         }
+//                     ],
+//                     tags:
+//                     [
+//                         {
+//                             name: "test",
+//                             color: "#005B00"
+//                         },
+//                         {
+//                             name: "test2",
+//                             color: "#AA5B00"
+//                         }
+//                     ]
+//                 }
+//             ]
+//         },
+//         {
+//             name: "Unknown #1"
+//         }
+//     ]
+// });
+await refreshInv();
 
 /**
  * Update the chemicals display table from the current inventory.
+ * @param {string} criteria The common substring of the chemicals shown.
+ * @returns {boolean} Whether the table displayed any match.
  */
-function updateDisplay() {
+function updateDisplay(criteria) {
     console.log("Updating display");
 
     // Flush display table
     chemTable.innerHTML = "";
+
+    // Result matched flag
+    let matched = false;
 
     // Current table row
     let row;
@@ -69,6 +131,9 @@ function updateDisplay() {
 
     // Number of subitems
     let numSubitems;
+
+    // <a> node on the chemical names to allow chemical editing
+    let anchorNode;
 
     // Count HTML node
     let countNodeEl;
@@ -160,6 +225,15 @@ function updateDisplay() {
     for (let item of current_inventory.chemicals) {
         console.log(item);
 
+        // If criteria is not met, skip current display
+        if (criteria && !item.name.includes(criteria))
+        {
+            continue;
+        }
+
+        // If this line is executed, there is a match
+        matched = true;
+
         // Create table row
         row = document.createElement("tr");
 
@@ -186,7 +260,11 @@ function updateDisplay() {
 
 
         // 2. Chemical name
-        addCol("td", {}, document.createTextNode(item.name));
+        anchorNode = document.createElement("a");
+        anchorNode.setAttribute("href", `/frames/chemical_editor.html?id=${item.ID}`);
+        anchorNode.setAttribute("target", "_top");
+        anchorNode.appendChild(document.createTextNode(item.name));
+        addCol("td", {}, anchorNode);
 
         // 3. Molecular formula
         addCol("td", {}, parseFormula(item.formula, "html"));
@@ -206,6 +284,8 @@ function updateDisplay() {
                         if (!unitTracked) {
                             // Keep an eye on the first unit
                             amtUnitTracker = iteml2.capacityUnit;
+                            // Set the tracked flag to true
+                            unitTracked = true;
                         }
                         // Otherwise, if the unit is different, break out of the loop
                         else if (iteml2.capacityUnit != amtUnitTracker) {
@@ -221,7 +301,7 @@ function updateDisplay() {
         if (unitIsConsistent) {
             // unitTracked put here to display "NONE" if there are no containers
             if (amtCounter > 0 && unitTracked) {
-                amtDisp = amtCounter + amtUnitTracker
+                amtDisp = amtCounter + " " + amtUnitTracker
             }
             else {
                 row.classList.add("table-warning")
@@ -305,6 +385,8 @@ function updateDisplay() {
                     if (!unitTracked) {
                         // Keep an eye on the first unit
                         amtUnitTracker = container.capacityUnit;
+                        // Set the tracked flag to true
+                        unitTracked = true;
                     }
                     // Otherwise, if the unit is different, break out of the loop
                     else if (container.capacityUnit != amtUnitTracker) {
@@ -315,7 +397,7 @@ function updateDisplay() {
                 if (unitIsConsistent) {
                     // unitTracked put here to display "NONE" if there are no containers
                     if (specAmtCounter > 0 && unitTracked) {
-                        amtDisp = specAmtCounter + amtUnitTracker
+                        amtDisp = specAmtCounter + " " + amtUnitTracker
                     }
                     else {
                         subitemTableRowEl.classList.add("table-warning")
@@ -372,6 +454,58 @@ function updateDisplay() {
             <th scope="col">Tags</th><th scope="col">Last edited</th></tr></thead>${subitemTableBodyEl.innerHTML}</table></div></td></tr>`
         }
     }
+
+    return matched;
+}
+
+/**
+ * Update the chemicals suggestion list from the current inventory.
+ * @param {string} criteria The common substring of the chemicals shown.
+ */
+function updateList(criteria)
+{
+    getSearchSuggestions(criteria).then((suggestions) => 
+    {
+        // Clear the suggestion list
+        suggestionListEl.replaceChildren();
+
+        // Current <option> element
+        let cur_opt_el;
+
+        for (const option of suggestions)
+        {
+            cur_opt_el = document.createElement("option");
+            cur_opt_el.setAttribute("value", option);
+
+            suggestionListEl.appendChild(cur_opt_el);
+        }
+    });
 }
 
 updateDisplay();
+
+// Prevent form submission
+formEl.addEventListener("submit", (event) => 
+{
+    event.preventDefault();
+});
+
+// Refresh chemical display
+searchEl.addEventListener("change", (event) =>
+{
+    console.log(event.target.value);
+
+    // Update display, and update suggestion list if nothing is found
+    if (!updateDisplay(event.target.value))
+    {
+        updateList(event.target.value);
+    }
+});
+
+// Add a chemical if the "add" button is clicked
+addEl.addEventListener("click", (event) => 
+{
+    // Redirect to add page
+    event.preventDefault();
+    window.location.replace(`/frames/chemical_editor.html?add=${encodeURI(searchEl.value)}`);
+});

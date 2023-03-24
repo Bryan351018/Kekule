@@ -16,17 +16,22 @@
 
 <body class="framed">
     <!-- Search bar and submit button-->
-    <form class="row row-cols-lg-auto g-3 align-items-center">
+    <form class="row row-cols-lg-auto g-3 align-items-center" id="main-form">
         <div class="col-12">
             <label class="visually-hidden" for="inlineFormInputGroupUsername">Search...</label>
             <div class="input-group">
                 <!-- <div class="input-group-text">@</div> -->
-                <input type="text" placeholder="Search...">
+                <!-- Chemical name input element -->
+                <input type="text" placeholder="Search..." id="search-textfield" list="chemical-suggestions">
+
+                <!-- List of suggestions -->
+                <datalist id="chemical-suggestions">
+                </datalist>
             </div>
         </div>
 
         <div class="col-12">
-            <button type="submit" class="btn btn-primary">Submit</button>
+            <button type="button" class="btn btn-primary" id="add-chemical">Add</button>
         </div>
     </form>
 

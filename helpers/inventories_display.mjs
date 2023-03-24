@@ -3,35 +3,49 @@
  * @module helpers/inventories_display
  */
 
-import { Chemical, SpecificChemical, Tag, AddAction } from "../app_core/kekule.mjs";
-import { current_inventory, InventoryTools } from "../app_core/base.mjs";
+// import { Chemical, SpecificChemical, Apparatus, SpecificApparatus, Tag, AddAction } from "../app_core/kekule.mjs";
+import { current_inventory, refreshInv, InventoryTools } from "../app_core/base.mjs";
 import { initDocRef, requestDownload, requestOpen } from "../app_core/utilities.mjs";
 
 // Initialize the document reference of the inventory frame
 initDocRef(document);
 
-// Testing data
-let a = new Chemical();
-a.name = "Hydrochloric acid";
-a.formula = "HCl";
-let a1 = new SpecificChemical();
-let a1t = new Tag();
-a1t.name = "test";
-a1t.color = "#005B00";
-let a2t = new Tag();
-a2t.name = "test2";
-a2t.color = "#AA5B00";
-a1.tags.push(a1t);
-a1.tags.push(a2t);
-a.addSubItem(a1);
-current_inventory.chemHistories.doAction(new AddAction(a, current_inventory));
-let b = new Chemical();
-b.name = "Copper sulfate heptahydrate";
-b.formula = "CuSO4*7H2O";
-current_inventory.chemHistories.doAction(new AddAction(b, current_inventory));
-let c = new Chemical();
-c.name = "Unknown #1";
-current_inventory.chemHistories.doAction(new AddAction(c, current_inventory));
+// Refresh inventory
+await refreshInv();
+
+// // Testing data
+// let a = new Chemical();
+// a.name = "Hydrochloric acid";
+// a.formula = "HCl";
+// let a1 = new SpecificChemical();
+// let a1t = new Tag();
+// a1t.name = "test";
+// a1t.color = "#005B00";
+// let a2t = new Tag();
+// a2t.name = "test2";
+// a2t.color = "#AA5B00";
+// a1.tags.push(a1t);
+// a1.tags.push(a2t);
+// a.addSubItem(a1);
+// current_inventory.chemHistories.doAction(new AddAction(a, current_inventory));
+// let b = new Chemical();
+// b.name = "Copper sulfate heptahydrate";
+// b.formula = "CuSO4*7H2O";
+// current_inventory.chemHistories.doAction(new AddAction(b, current_inventory));
+// let c = new Chemical();
+// c.name = "Unknown #1";
+// current_inventory.chemHistories.doAction(new AddAction(c, current_inventory));
+// let Aa = new Apparatus();
+// Aa.name = "Beaker";
+// let Aa1 = new SpecificApparatus();
+// Aa1.name = "Beaker";
+// Aa1.specifications = "250mL ± 5%";
+// let Aa1t = new Tag();
+// Aa1t.name = "A1";
+// Aa1t.color = "#55004F";
+// Aa1.tags.push(Aa1t);
+// Aa.addSubItem(Aa1);
+// current_inventory.appaHistories.doAction(new AddAction(Aa, current_inventory));
 
 /**
  * Update the inventory display.
