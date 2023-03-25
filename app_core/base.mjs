@@ -3,7 +3,7 @@
  * @module app_core/base
  */
 
-import { Inventory } from "./kekule.mjs";
+import { Chemical, Inventory, SpecificChemical, Container, Tag, AddAction } from "./kekule.mjs";
 import { get as IDB_get, set as IDB_set } from "../libs/idb-keyval.mjs";
 // import { parse as CSVRead, unparse as CSVWrite } from "../libs/papaparse.js";
 
@@ -33,7 +33,7 @@ class InventoryTools
             }
         }
         // If the value is another object
-        else if (typeof obj == "object")
+        else if (typeof obj == "object" && obj !== null)
         {
             tempobj = {};
             for (const k of Object.keys(Object.getOwnPropertyDescriptors(obj)).concat(hiddenProperties))
@@ -109,11 +109,108 @@ class InventoryTools
 
     /**
      * Convert a CSV file containing chemical data into an inventory.
-     * @param
+     * @param {object} obj The source object.
+     * @returns {Inventory} The converted invenntory.
      */
     static importChemCSV(obj)
     {
+        let curInv = new Inventory();
 
+        let skipflag = false;
+
+        let initialName = "";
+
+        // Current chemical
+        let cur_chem = new Chemical();
+
+        // Tag collection
+        let tagCol = new Set();
+
+        for (const row of obj)
+        {
+            // Skip the first row
+            if (!skipflag)
+            {
+                skipflag = true;
+                continue;
+            }
+
+            // If initial name is empty
+            if (!initialName)
+            {
+                initialName = row[0];
+            }
+
+            // New chemical
+            if (row[0] !== initialName)
+            {
+                // Add chemical to inventory
+                curInv.chemHistories.doAction(new AddAction(cur_chem, curInv));
+
+                // Reset chemical
+                cur_chem = new Chemical();
+                tagCol.clear();
+
+                // Set matching name
+                initialName = row[0];
+            }
+            // New specific chemical
+            cur_chem.name = row[0];
+
+            // If both tag and container size info are present
+            if (row[1] && row[2])
+            {
+                let newTag = [new Tag({
+                    name: row[1],
+                    color: "#000000"
+                })];
+
+                curInv.chemHistories.doAction(new AddAction(
+                    new SpecificChemical({
+                        name: row[0],
+                        containers: [
+                            new Container({
+                                count: 1,
+                                unitCapacity: Number(row[2].split(" ")[0]),
+                                remaining: Number(row[2].split(" ")[0]),
+                                capacityUnit: row[2].split(" ")[1]
+                            })
+                        ],
+                        specifications: "",
+                        tags: newTag
+                    }),
+                    curInv,
+                    cur_chem
+                ));
+
+                tagCol.add(row[1]);
+            }
+            // If at least one of them is absent
+            else
+            {
+                curInv.chemHistories.doAction(new AddAction(
+                    new SpecificChemical({
+                        name: row[0],
+                        containers: [],
+                        specifications: "",
+                        tags: []
+                    }),
+                    curInv,
+                    cur_chem
+                ));
+            }
+        }
+
+        // Last time for correction
+
+        // Add chemical to inventory
+        curInv.chemHistories.doAction(new AddAction(cur_chem, curInv));
+
+        // Reset chemical
+        cur_chem = new Chemical();
+
+        // Return inventory
+        return curInv;
     }
 }
 

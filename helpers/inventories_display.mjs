@@ -125,4 +125,22 @@ document.getElementById("inv-new").addEventListener("click", async function(){
     }
 })
 
+document.getElementById('inv-import').addEventListener("click", () => {
+    requestOpen(".csv", (files) => {
+        console.log(files[0]);
+        
+        files[0].text().then(async function(str){
+            let rawData = await Papa.parse(str);
+            
+            setInv(InventoryTools.importChemCSV(rawData.data), files[0].name);
+
+            // Open inventory
+            // setInv(InventoryTools.deserialize(str), files[0].name);
+
+            // Update display
+            await updateDisplay();
+        })
+    });
+})
+
 await updateDisplay();

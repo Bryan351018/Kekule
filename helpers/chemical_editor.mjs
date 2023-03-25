@@ -1116,6 +1116,13 @@ if (addName) {
 
         window.location.replace(ROOT_URL + "/");
     })
+
+    // When the delete button is clicked, exit gracefully
+    delBtn.addEventListener("click", () =>
+    {
+        // Redirect to home page
+        window.location.replace(ROOT_URL + "/");
+    })
 }
 // Edit mode
 else if (editID) {
