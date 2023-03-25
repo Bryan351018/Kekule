@@ -6,7 +6,7 @@
 // import { Inventory, Chemical, SpecificChemical, Container, Tag, AddAction } from "../app_core/kekule.mjs";
 import { refreshInv, current_inventory } from "../app_core/base.mjs";
 import { parseFormula } from "./chemical_editor.mjs";
-import { getSearchSuggestions } from "../app_core/web_lookup.mjs";
+import { getSearchSuggestions, getContrast } from "../app_core/web_lookup.mjs";
 import { ROOT_URL } from "../app_core/root_url.mjs";
 
 // Get chemicals table
@@ -104,7 +104,7 @@ await refreshInv();
  * @param {string} criteria The common substring of the chemicals shown.
  * @returns {boolean} Whether the table displayed any match.
  */
-function updateDisplay(criteria) {
+async function updateDisplay(criteria) {
     console.log("Updating display");
 
     // Flush display table
@@ -338,6 +338,15 @@ function updateDisplay(criteria) {
             cur_badge.classList.add("badge", "rounded-pill");
             cur_badge.style.backgroundColor = tag.color;
             cur_badge.appendChild(document.createTextNode(tag.name));
+
+            if (await getContrast("000000", tag.color.replace("#", "")) > await getContrast("FFFFFF", tag.color.replace("#", "")))
+            {
+                cur_badge.style.color = "#000000";
+            }
+            else
+            {
+                cur_badge.style.color = "#FFFFFF";
+            }
             col.appendChild(cur_badge);
         }
         // Append entire column
@@ -483,7 +492,7 @@ function updateList(criteria)
     });
 }
 
-updateDisplay();
+await updateDisplay();
 
 // Prevent form submission
 formEl.addEventListener("submit", (event) => 
@@ -492,12 +501,12 @@ formEl.addEventListener("submit", (event) =>
 });
 
 // Refresh chemical display
-searchEl.addEventListener("change", (event) =>
+searchEl.addEventListener("change", async function (event)
 {
     console.log(event.target.value);
 
     // Update display, and update suggestion list if nothing is found
-    if (!updateDisplay(event.target.value))
+    if (!(await updateDisplay(event.target.value)))
     {
         updateList(event.target.value);
     }
