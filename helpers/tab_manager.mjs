@@ -22,7 +22,9 @@ function setMainFrame(name)
 {
     // If the parameter is not specified, the name defaults to the value in sessionStorage
     if (name || sessionFrameName)
+    {
         frame.setAttribute("src", `${ROOT_URL}/frames/${name ?? sessionFrameName}.html`);
+    }
     else
     {
         throw Error("Main frame name not specified, and not found in session storage.");

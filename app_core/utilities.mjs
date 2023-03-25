@@ -108,8 +108,19 @@ function sortedAdd(element, target, comp) {
  */
 function compRecs(a, b) {
     // String comparisons are based on Unicode code points (numerical value represented by a character)
-    return (a.name == b.name) ? 0 : ((a.name > b.name) ? 1 : -1);
+
+    // If a and b exists
+    if (a && b)
+    {
+        return (a.name == b.name) ? 0 : ((a.name > b.name) ? 1 : -1);
+    }
+    // If there's nothing to compare
+    else
+    {
+        return 0;
+    }
 }
+    
 
 /** Class containing methods that help in registering and deregistering item indices on item maps. Use only after the add/delete operations of Items. */
 class MapTools
@@ -185,21 +196,23 @@ function initDocRef(doc)
 {
     inputEl = doc.getElementById(inputElId);
 
-    // Triggers if there is a file input
-    inputEl.addEventListener("change", () => 
-    {
-        console.log(inputEl.files);
-    });
+    // // Triggers if there is a file input
+    // inputEl.addEventListener("change", () => 
+    // {
+    //     console.log(inputEl.files);
+    // });
 }
 
 /**
  * Request opening a file
  * @param {string} ext The extension of the inputted file (e.g. ".aki", ".csv")
  */
-function requestOpen(ext)
+function requestOpen(ext, callback)
 {
     inputEl.setAttribute("accept", ext);
     inputEl.click();
+
+    inputEl.addEventListener("change", () => {callback.call(inputEl, inputEl.files)});
 }
 
 export { sortedAdd, compRecs, MapTools, requestDownload, requestOpen, initDocRef }

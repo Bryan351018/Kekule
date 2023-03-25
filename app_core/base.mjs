@@ -19,7 +19,7 @@ class InventoryTools
     static exposePrivates(obj)
     {
         // Specify hidden properties here that exposePrivates need to know.
-        const hiddenProperties = ["name"];
+        const hiddenProperties = ["name", "code", "identifier"];
 
         let tempobj;
 
@@ -141,11 +141,41 @@ async function getInv() {
     });
 }
 
+// Get inventory's name.
+async function getName()
+{
+    let name = await IDB_get("inventory_name");
+
+    // Return it
+    return new Promise((resolve) => {
+        // If there is a name
+        if (name) {
+            resolve(name);
+        }
+        // If there is no name
+        else {
+            resolve("<browser storage>");
+        }
+    });
+}
+
 // Try to set the inventory to IndexedDB
 async function setInv(inventory, name)
 {
     console.log(InventoryTools.serialize(inventory));
     await IDB_set("current_inventory", InventoryTools.serialize(inventory));
+
+    // If there is an inventory name, set it
+    if (name)
+    {
+        await IDB_set("inventory_name", name);
+    }
+}
+
+// Reset the inventory.
+async function resetInv()
+{
+    await setInv(new Inventory(), "<browser storage>");
 }
 
 // Wait to load inventory
@@ -157,4 +187,4 @@ async function refreshInv()
 // IDB_set("current_inventory", null);
 refreshInv();
 
-export { refreshInv, setInv, current_inventory, InventoryTools };
+export { refreshInv, setInv, resetInv, current_inventory, InventoryTools, getName };

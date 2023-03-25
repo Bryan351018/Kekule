@@ -16,7 +16,7 @@
 <body>
     <!-- Inventory rundown -->
     <ul class="list-group">
-        <li class="list-group-item active">Current inventory: &lt;browser storage&gt;</li>
+        <li class="list-group-item active">Current inventory: <span id="inv-name"></span></li>
         <li class="list-group-item">Chemical entries: <span id="inv-attr-chemcount"></span></li>
         <li class="list-group-item">Specific chemical entries: <span id="inv-attr-specchemcount"></span></li>
         <li class="list-group-item">Apparatus entries: <span id="inv-attr-appacount"></span></li>
@@ -31,7 +31,7 @@
     <button type="button" class="btn btn-secondary">Export to CSV...</button>
     <button type="button" class="btn btn-primary" id="inv-open">Open...</button>
     <button type="button" class="btn btn-secondary">Import CSV...</button>
-    <button type="button" class="btn btn-primary">New inventory...</button>
+    <button type="button" class="btn btn-primary" id="inv-new">New inventory...</button>
 
     <!-- File input, hidden by CSS -->
     <input type="file" name="file-in" id="file-in">

@@ -59,7 +59,8 @@ async function getSearchSuggestions(name)
 async function getContrast(c1, c2)
 {
     let result = await fetch(`https://webaim.org/resources/contrastchecker/?fcolor=${c1}&bcolor=${c2}&api`);
-    return (await result.json().ratio);
+    let str_ratio = (await result.json()).ratio;
+    return (Number(str_ratio));
 }
 
 export {getCIDAndFormula, getHazards, getContrast, getSearchSuggestions}

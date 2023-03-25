@@ -4,7 +4,7 @@
  */
 
 // import { Chemical, SpecificChemical, Apparatus, SpecificApparatus, Tag, AddAction } from "../app_core/kekule.mjs";
-import { current_inventory, refreshInv, InventoryTools } from "../app_core/base.mjs";
+import { current_inventory, refreshInv, InventoryTools, setInv, resetInv, getName } from "../app_core/base.mjs";
 import { initDocRef, requestDownload, requestOpen } from "../app_core/utilities.mjs";
 
 // Initialize the document reference of the inventory frame
@@ -50,7 +50,13 @@ await refreshInv();
 /**
  * Update the inventory display.
  */
-function updateDisplay() {
+async function updateDisplay() {
+    // Refresh inventory
+    await refreshInv();
+
+    // Inventory name
+    document.getElementById("inv-name").innerText = await getName();
+
     // Chemical entries
     document.getElementById("inv-attr-chemcount").innerText = current_inventory.chemicals.length;
 
@@ -92,7 +98,31 @@ document.getElementById("inv-save").addEventListener("click", () =>
 // Opening file
 document.getElementById("inv-open").addEventListener("click", () => 
 {
-    requestOpen(".aki");
+    requestOpen(".aki", (files) => {
+        console.log(files[0]);
+        
+        files[0].text().then(async function(str){
+            console.log(str);
+
+            // Open inventory
+            setInv(InventoryTools.deserialize(str), files[0].name);
+
+            // Update display
+            await updateDisplay();
+        })
+    });
 });
 
-updateDisplay();
+// New inventory
+document.getElementById("inv-new").addEventListener("click", async function(){
+    if (confirm("This will erase the current inventory stored in the browser. Are you sure that all changes were saved?"))
+    {
+        // Reset inventory
+        await resetInv();
+
+        // Update display
+        await updateDisplay();
+    }
+})
+
+await updateDisplay();

@@ -8,6 +8,12 @@ import { GHSC } from "../ghs_data/ghs_data.mjs";
 import { compRecs, sortedAdd, MapTools } from "./utilities.mjs";
 
 
+// https://stackoverflow.com/a/14378462/20213774
+function callConstructor(constructor) {
+    var factoryFunction = constructor.bind.apply(constructor, arguments);
+    return new factoryFunction();
+}
+
 /**
  * Help construct a classed object from a class-less object.
  * @param {object} _this The "this" object pointer of a class.
@@ -21,13 +27,13 @@ function initObj(_this, initDict)
         // For each property given
         for (const key of Object.keys(initDict))
         {
-            // {<Property name>: {constructor: <Class>, isArray: <Boolean>}};
+            // {<Property name>: {deserializer: <Class>, isArray: <Boolean>}};
 
             // If the class's init list exists
             if (_this.initList)
             {
                 // If init steps exist for a particular property
-                if (_this.initList[key])
+                if (_this.initList[key]?.deserializer)
                 {
                     // If the property is an array of objects
                     if (Array.isArray(initDict[key]))
@@ -45,23 +51,24 @@ function initObj(_this, initDict)
                         // Iteration
                         for (const obj of initDict[key])
                         {
-                            _this[key].push(new _this.initList[key].constructor(obj))
+                            _this[key].push(callConstructor(_this.initList[key].deserializer, obj));
                         }
                     }
-                    // If the property is an object
+                    // If the property is an object or BigInt
                     else
                     {
-                        // Catch for BigInt
+                        // Object
                         try
                         {
-                            _this[key] = new _this.initList[key].constructor(initDict[key]);
+                            _this[key] = callConstructor(_this.initList[key].deserializer, initDict[key]);
                         }
+                        // BigInt
                         catch (e)
                         {
                             if (e instanceof TypeError)
                             {
                                 // Initialize a BigInt
-                                _this[key] = _this.initList[key].constructor(initDict[key]);
+                                _this[key] = BigInt(initDict[key]);
                             }
                             else
                             {
@@ -73,13 +80,19 @@ function initObj(_this, initDict)
                 else
                 {
                     // Non-class assignment
-                    _this[key] = structuredClone(initDict[key]);
+                    if (key !== "initList")
+                    {
+                        _this[key] = initDict[key];
+                    }
                 }
             }
             else
             {
                 // Non-class assignment
-                _this[key] = structuredClone(initDict[key]);
+                if (key !== "initList")
+                {
+                    _this[key] = initDict[key];
+                }
             }
         }
     }
@@ -124,6 +137,39 @@ class Record
     }
 }
 
+/** Class representing a tag that has a name and a color. */
+class Tag
+{
+    #name;
+
+    /**
+     * Set name of the tag
+     * @param {string} value The value to set
+     */
+    set name(value)
+    {
+        this.#name = value;
+
+        // TODO: register edit to history
+    }
+
+    get name()
+    {
+        return this.#name;
+    }
+
+    /**
+     * The RGB color of the tag, represented as "#" with a hexademical value
+     * @type {string}
+     */
+    color;
+
+    constructor(dict)
+    {
+        initObj(this, dict);
+    }
+}
+
 /** Class representing an abstract sub-item that contains tags. */
 class SubItem extends Record
 {
@@ -137,11 +183,12 @@ class SubItem extends Record
      * The initialization list for this class, to help with deserialization.
      * @type {Object<string,Object<object,boolean>>}
      */
-    initList = {tags: {constructor: Tag, isArray: true}};
+    initList;
 
     constructor(dict)
     {
         super(dict);
+        this.initList = {tags: {deserializer: Tag, isArray: true}};
         initObj(this, dict)
     }
 }
@@ -193,11 +240,12 @@ class Item extends Record
      * The initialization list for this class, to help with deserialization.
      * @type {Object<string,Object<object,boolean>>}
      */
-    initList = {subitems: {constructor: SubItem, isArray: true}};
+    initList;
 
     constructor(dict)
     {
         super(dict);
+        this.initList = {subitems: {deserializer: SubItem, isArray: true}};
         initObj(this, dict);
     }
 }
@@ -268,18 +316,23 @@ class Action
         // Add specific chemical
         else if (item instanceof SpecificChemical)
         {
-            this.minorLocation = this.#halfAdd(item, this.majorObj);
+            this.minorLocation = this.#halfAdd(item, this.majorObj.subitems);
         }
         // Add container
         else if (item instanceof Container)
         {
             this.majorObj.containers.push(item);
         }
+        // Add tag
+        else if (item instanceof Tag)
+        {
+            this.majorObj.tags.push(item);
+        }
         // Add apparatus
         else if (item instanceof Apparatus)
         {
             this.majorLocation = this.#halfAdd(item, this.source.apparatuses);
-            MapTools.register(this.source.apparatusesMap, item, this.source);
+            MapTools.register(this.source.apparatusesMap, item, this.source.subitems);
         }
         // Add specific apparatus
         else if (item instanceof SpecificApparatus)
@@ -311,6 +364,11 @@ class Action
         {
             // Delete from the back
             this.majorObj.containers.splice(this.minorLocation, 1);
+        }
+        // Delete tag
+        else if (item instanceof Tag)
+        {
+            this.majorObj.tags.splice(this.minorLocation, 1);
         }
         // Delete apparatus
         else if (item instanceof Apparatus)
@@ -360,7 +418,7 @@ class AddAction extends Action
 
     /**
      * Create an AddAction.
-     * @param {Item | SubItem | Container} obj The object to add.
+     * @param {Item | SubItem | Container | Tag} obj The object to add.
      * @param {Inventory} source The source inventory to perform the action.
      * @param {Item | SubItem | null} majorObj The major location inside an Item array, if the object added is a SubItem or a Container
      */
@@ -375,6 +433,10 @@ class AddAction extends Action
         else if (obj instanceof Container)
         {
             // Containers are always appended
+            this.majorObj = majorObj;
+        }
+        else if (obj instanceof Tag)
+        {
             this.majorObj = majorObj;
         }
     }
@@ -415,7 +477,7 @@ class EditAction extends Action
     /**
      * Create an EditAction.
      * @param {Inventory} source The source inventory to perform the action.
-     * @param {Item | SubItem | Container} majorObj The Object that is being edited
+     * @param {Item | SubItem | Container | Tag} majorObj The Object that is being edited
      * @param {string} property The string of the property name to edit
      * @param {any} to The value of the edit
      */
@@ -452,7 +514,7 @@ class DeleteAction extends Action
 
     /**
      * Create an DeleteAction.
-     * @param {Item | SubItem} obj The object to delete.
+     * @param {Item | SubItem | Tag} obj The object to delete.
      * @param {Inventory} source The source inventory to perform the action.
      * @param {Item | SubItem | null} majorObj The major location inside an Item array, if the object deleted is a SubItem or a Container
      * @param {number} minorLoc The minor location, if the object deleted is a SubItem
@@ -478,6 +540,11 @@ class DeleteAction extends Action
             this.minorLocation = minorLoc;
             this.majorObj = majorObj;
         }
+        else if (obj instanceof Tag)
+        {
+            this.minorLocation = minorLoc;
+            this.majorObj = majorObj;
+        }
         else if (obj instanceof Apparatus)
         {
             this.majorLocation = this.source.apparatuses.findIndex((item) => {item.ID == obj.ID});
@@ -498,153 +565,6 @@ class DeleteAction extends Action
     perform()
     {
         this.performFullDelete(this.deleted);
-    }
-}
-
-/** Class representing a tag that has a name and a color. */
-class Tag
-{
-    #name;
-
-    /**
-     * Set name of the tag
-     * @param {string} value The value to set
-     */
-    set name(value)
-    {
-        this.#name = value;
-
-        // TODO: register edit to history
-    }
-
-    get name()
-    {
-        return this.#name;
-    }
-
-    /**
-     * The RGB color of the tag, represented as "#" with a hexademical value
-     * @type {string}
-     */
-    color;
-
-    constructor(dict)
-    {
-        initObj(this, dict);
-    }
-}
-
-/** Class representing a chemical. */
-class Chemical extends Item
-{
-    /**
-     * The molecular formula of the chemical.
-     * @type {string}
-     */
-    formula = "";
-
-    /**
-     * The list of GHS pictograms assigned to this chemical.
-     * @type {Array<GHSPictogram>}
-     */
-    GHSPictograms = [];
-
-    /**
-     * The list of GHS hazard and precautionary codes assigned to this chemical.
-     * @type {Array<GHSCode>}
-     */
-    GHSCodes = [];
-
-    /**
-     * The NFPA 704 Diamond attached to this chemical.
-     * @type {NFPADiamond}
-     */
-    NFPADiamond = new NFPADiamond();
-
-    // 
-    /**
-     * Sub-items are of type SpecificChemical (redeclaration)
-     * @type {Array<SpecificChemical>}
-     */
-    subitems = [];
-
-    /**
-     * The initialization list for this class, to help with deserialization.
-     * @type {Object<string,Object<object,boolean>>}
-     */
-    initList = 
-    {
-        GHSPictograms: {constructor: GHSPictogram, isArray: true},
-        GHSCodes: {constructor: GHSCode, isArray: true},
-        NFPADiamond: {constructor: NFPADiamond, isArray: false},
-        subitems: {constructor: SpecificChemical, isArray: true}
-    };
-
-    constructor(dict)
-    {
-        super(dict);
-        initObj(this, dict);
-    }
-}
-
-/** Class representing a specific chemical. */
-class SpecificChemical extends SubItem
-{
-    /**
-     * The containers assigned to this specific chemical.
-     * @type {Array<Container>}
-     */
-    containers = [];
-
-    /**
-     * The text descriptions of this specific chemical.
-     * @type {string}
-     */
-    specifications = "";
-
-    /**
-     * The initialization list for this class, to help with deserialization.
-     * @type {Object<string,Object<object,boolean>>}
-     */
-    initList = {containers: {constructor: Container, isArray: true}};
-
-    constructor(dict)
-    {
-        super(dict);
-        initObj(this, dict);
-    }
-}
-
-/** Class representing a container. */
-class Container
-{
-    /**
-     * The number of this container.
-     * @type {number}
-     */
-    count;
-
-    /**
-     * The numeric part of the capacity for one container.
-     * @type {number}
-     */
-    unitCapacity;
-
-    /**
-     * The total remaining amount for this container.
-     * @type {number}
-     */
-    remaining;
-
-    /**
-     * The unit part of the capacity for one container.
-     * @type {string}
-     */
-    capacityUnit;
-
-    constructor(dict)
-    {
-        initObj(this, dict);
     }
 }
 
@@ -726,7 +646,7 @@ class GHSPictogram
 
     /**
      * Create a GHS pictogram from a numeric identifier from 1 to 9.
-     * @param {Object<string, nummber>} dict The number in the form of {identifier: NUMBER}.
+     * @param {Object<string, number>} dict The number in the form of {identifier: NUMBER}.
      */
     constructor(dict)
     {
@@ -757,11 +677,11 @@ class GHSCode
     {
         if (this.#prefix == "H")
         {
-            return GHSC.H[this.#prefix + this.#numeric];
+            return GHSC.H[this.#prefix + this.#numeric] ?? "(unknown)";
         }
         else if (this.#prefix == "P")
         {
-            return GHSC.P[this.#prefix + this.#numeric];
+            return GHSC.P[this.#prefix + this.#numeric] ?? "(unknown)";
         }
         else
         {
@@ -834,24 +754,88 @@ class NFPADiamond
      */
     specialConsiderations;
 
+    // Messages taken from Wikipedia (https://en.wikipedia.org/wiki/NFPA_704)
+
     getHealthMsg()
     {
-
+        switch (this.healthRating)
+        {
+            case 0:
+                return "Poses no health hazard, no precautions necessary and would offer no hazard beyond that of ordinary combustible materials";
+            case 1:
+                return "Exposure would cause irritation with only minor residual injury";
+            case 2:
+                return "Intense or continued but not chronic exposure could cause temporary incapacitation or possible residual injury";
+            case 3:
+                return "Short exposure could cause serious temporary or moderate residual injury";
+            case 4:
+                return "Very short exposure could cause death or major residual injury";
+            default:
+                return null;
+        }
     }
 
     getFireMsg()
     {
-        
+        switch (this.fireRating)
+        {
+            case 0:
+                return "Materials that will not burn under typical fire conditions. Will not burn in air unless exposed to a temperature of 820 °C (1,500 °F) for more than 5 minutes. ";
+            case 1:
+                return "Materials that require considerable preheating, under all ambient temperature conditions, before ignition and combustion can occur. Flash point at or above 93.3 °C (200 °F). ";
+            case 2:
+                return "Must be moderately heated or exposed to relatively high ambient temperature before ignition can occur. Flash point between 37.8 and 93.3 °C (100 and 200 °F). ";
+            case 3:
+                return "Liquids and solids (including finely divided suspended solids) that can be ignited under almost all ambient temperature conditions. Liquids having a flash point below 22.8 °C (73 °F) and having a boiling point at or above 37.8 °C (100 °F) or having a flash point between 22.8 and 37.8 °C (73 and 100 °F). ";
+            case 4:
+                return "Will rapidly or completely vaporize at normal atmospheric pressure and temperature, or is readily dispersed in air and will burn readily. Flash point below room temperature at 22.8 °C (73 °F). ";
+            default:
+                return null;
+        }
     }
 
     getInstabilityMsg()
     {
-        
+        switch (this.instabilityRating)
+        {
+            case 0:
+                return "Normally stable, even under fire exposure conditions, and is not reactive with water";
+            case 1:
+                return "Normally stable, but can become unstable at elevated temperatures and pressures";
+            case 2:
+                return "Undergoes violent chemical change at elevated temperatures and pressures, reacts violently with water, or may form explosive mixtures with water";
+            case 3:
+                return "Capable of detonation or explosive decomposition but requires a strong initiating source, must be heated under confinement before initiation, reacts explosively with water, or will detonate if severely shocked";
+            case 4:
+                return "Readily capable of detonation or explosive decomposition at normal temperatures and pressures";
+            default:
+                return null;
+        }
     }
 
     getSpecHazardMsg()
     {
-        
+        switch (this.specialConsiderations)
+        {
+            case "OX":
+                return "Oxidizer";
+            case "W":
+                return "Reacts with water";
+            case "SA":
+                return "Simple asphyxiant gas";
+            default:
+                return "NONE";
+        }
+    }
+
+    get chainedString()
+    {
+        return `${this.healthRating}-${this.fireRating}-${this.instabilityRating}-${this.specialConsiderations}`;
+    }
+
+    get image()
+    {
+        return `https://pubchem.ncbi.nlm.nih.gov/image/nfpa.cgi?code=${this.healthRating}${this.fireRating}${this.instabilityRating}${this.specialConsiderations}`;
     }
 
     constructor(dict)
@@ -860,14 +844,105 @@ class NFPADiamond
     }
 }
 
-/** Class representing an apparatus. */
-class Apparatus extends Item
+/** Class representing a container. */
+class Container
 {
-    // Nothing is in here! Everything is inherited from "Item".
+    /**
+     * The number of this container.
+     * @type {number}
+     */
+    count;
 
     /**
-     * Sub-items are of type SpecificApparatus (redeclaration)
-     * @type {Array<SpecificApparatus>}
+     * The numeric part of the capacity for one container.
+     * @type {number}
+     */
+    unitCapacity;
+
+    /**
+     * The total remaining amount for this container.
+     * @type {number}
+     */
+    remaining;
+
+    /**
+     * The unit part of the capacity for one container.
+     * @type {string}
+     */
+    capacityUnit;
+
+    constructor(dict)
+    {
+        initObj(this, dict);
+    }
+}
+
+/** Class representing a specific chemical. */
+class SpecificChemical extends SubItem
+{
+    /**
+     * The containers assigned to this specific chemical.
+     * @type {Array<Container>}
+     */
+    containers = [];
+
+    /**
+     * The text descriptions of this specific chemical.
+     * @type {string}
+     */
+    specifications = "";
+
+    /**
+     * The initialization list for this class, to help with deserialization.
+     * @type {Object<string,Object<object,boolean>>}
+     */
+    initList;
+
+    constructor(dict)
+    {
+        super(dict);
+        this.initList = {containers: {deserializer: Container, isArray: true}};
+        initObj(this, dict);
+    }
+}
+
+/** Class representing a chemical. */
+class Chemical extends Item
+{
+    /**
+     * The molecular formula of the chemical.
+     * @type {string}
+     */
+    formula = "";
+
+    /**
+     * The list of GHS pictograms assigned to this chemical.
+     * @type {Array<GHSPictogram>}
+     */
+    GHSPictograms = [];
+
+    /**
+     * The list of GHS hazard and precautionary codes assigned to this chemical.
+     * @type {Array<GHSCode>}
+     */
+    GHSCodes = [];
+
+    /**
+     * The GHS signal.
+     * @type {string}
+     */
+    GHSSignal = "";
+
+    /**
+     * The NFPA 704 Diamond attached to this chemical.
+     * @type {NFPADiamond}
+     */
+    NFPADiamond = new NFPADiamond();
+
+    // 
+    /**
+     * Sub-items are of type SpecificChemical (redeclaration)
+     * @type {Array<SpecificChemical>}
      */
     subitems = [];
 
@@ -875,11 +950,18 @@ class Apparatus extends Item
      * The initialization list for this class, to help with deserialization.
      * @type {Object<string,Object<object,boolean>>}
      */
-    initList = {subitems: {constructor: SpecificApparatus, isArray: true}};
+    initList;
 
     constructor(dict)
     {
         super(dict);
+
+        this.initList = {
+            GHSPictograms: {deserializer: GHSPictogram, isArray: true},
+            GHSCodes: {deserializer: GHSCode, isArray: true},
+            NFPADiamond: {deserializer: NFPADiamond, isArray: false},
+            subitems: {deserializer: SpecificChemical, isArray: true}
+        };
         initObj(this, dict);
     }
 }
@@ -902,6 +984,31 @@ class SpecificApparatus extends SubItem
     constructor(dict)
     {
         super(dict);
+        initObj(this, dict);
+    }
+}
+
+/** Class representing an apparatus. */
+class Apparatus extends Item
+{
+    // Nothing is in here! Everything is inherited from "Item".
+
+    /**
+     * Sub-items are of type SpecificApparatus (redeclaration)
+     * @type {Array<SpecificApparatus>}
+     */
+    subitems = [];
+
+    /**
+     * The initialization list for this class, to help with deserialization.
+     * @type {Object<string,Object<object,boolean>>}
+     */
+    initList;
+
+    constructor(dict)
+    {
+        super(dict);
+        this.initList = {subitems: {deserializer: SpecificApparatus, isArray: true}};
         initObj(this, dict);
     }
 }
@@ -964,11 +1071,22 @@ class Inventory
     nextID = 0n;
 
     /**
+     * The initialization list for this class, to help with deserialization.
+     * @type {Object<string,Object<object,boolean>>}
+     */
+    initList;
+
+    /**
      * Create an inventory.
      * @param {object?} dict Optional dictionary to create the inventory from
      */
     constructor(dict)
     {
+        this.initList = {
+            chemicals: {deserializer: Chemical, isArray: true},
+            apparatuses: {deserializer: Apparatus, isArray: true},
+            nextID: {deserializer: BigInt, isArray: false}
+        };
         initObj(this, dict);
     }
 
@@ -1002,17 +1120,6 @@ class Inventory
     {
 
     }
-
-    /**
-     * The initialization list for this class, to help with deserialization.
-     * @type {Object<string,Object<object,boolean>>}
-     */
-    initList = 
-    {
-        chemicals: {constructor: Chemical, isArray: true},
-        apparatuses: {constructor: Apparatus, isArray: true},
-        nextID: {constructor: BigInt, isArray: false}
-    };
 }
 
 export

@@ -86,7 +86,7 @@
                 </tr>
             </thead>
             <tbody id="subitems">
-                <tr>
+                <!-- <tr>
                     <th scope="row">
                         <a data-bs-toggle="collapse" href="#container-1" role="button" aria-expanded="false"
                         aria-controls="container-1">
@@ -120,7 +120,7 @@
                         </ul>
                     </td>
                     
-                </tr>
+                </tr> -->
             </tbody>
         </table>
 
@@ -177,30 +177,33 @@
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h1 class="modal-title fs-5">Select tag</h1>
+                    <h1 class="modal-title fs-5">Tag editor</h1>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
                     <form>
                         <!-- Selecting preset tags -->
-                        <select class="form-select" aria-label="Default select example">
+                        <!-- <select class="form-select" aria-label="Default select example">
                             <option selected>(Select a tag...)</option>
                             <option value="1">One</option>
                             <option value="2">Two</option>
                             <option value="3">(New tag...)</option>
-                        </select>
+                        </select> -->
 
                         <!-- Manually creating a tag -->
                         <label for="exampleColorInput" class="form-label">Tag name:</label>
-                        <input type="text" class="form-control" id="exampleColorInput" title="Tag name" disabled>
+                        <input type="text" class="form-control" id="tag-name" title="Tag name">
 
                         <label for="tagColor" class="form-label">Color:</label>
-                        <input type="color" class="form-control form-control-color" id="tagColor" value="#000000" title="Choose your color" disabled>
+                        <input type="color" class="form-control form-control-color" id="tag-color" value="#000000" title="Choose your color">
                     </form>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                    <button type="button" class="btn btn-primary">Save changes</button>
+                    <!-- Tag save button -->
+                    <button type="button" class="btn btn-primary" id="tag-save">Save changes</button>
+
+                    <button type="button" class="btn btn-danger" id="tag-delete">Delete tag</button>
                 </div>
             </div>
         </div>

@@ -7,6 +7,6 @@
 const ROOT_URL = "/Kekule";
 
 // The root URL for local testing using live-server
-// const ROOT_URL = "/";
+// const ROOT_URL = "";
 
 export { ROOT_URL };

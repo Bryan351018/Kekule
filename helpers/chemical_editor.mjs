@@ -6,7 +6,7 @@
 import { getCIDAndFormula, getHazards, getContrast } from "../app_core/web_lookup.mjs";
 import { GHSC } from "../ghs_data/ghs_data.mjs";
 import { current_inventory, setInv, refreshInv } from "../app_core/base.mjs";
-import { Chemical, SpecificChemical, Container, Tag, AddAction, EditAction, DeleteAction } from "../app_core/kekule.mjs";
+import { Chemical, SpecificChemical, Container, Tag, AddAction, EditAction, DeleteAction, GHSPictogram, GHSCode } from "../app_core/kekule.mjs";
 import { ROOT_URL } from "../app_core/root_url.mjs";
 
 // Refresh inventory
@@ -63,6 +63,10 @@ let nfpa_special = document.getElementById("nfpa-special");
 
 // Ghost chemical
 let chem = new Chemical();
+
+// Tag editor dialog components
+let tagEditorSource; // Unwrapped <div> element, for attaching event handler
+let tagEditorModal; // Bootstrap-wrapped element, for JavaScript interfacing
 
 //If this module is used inside the chemical editor
 // (As opposed to the chemicals main display table)
@@ -223,16 +227,381 @@ function parseFormula(formula, format) {
 }
 
 /**
+ * Attempt to perform an edit
+ * @param {Item | SubItem | Container} majorObj The Object that is being edited
+ * @param {string} property The string of the property name to edit
+ * @param {any} to The value of the edit
+ */
+function reg(majorObj, property, to)
+{
+    if (majorObj[property] != to)
+    {
+        current_inventory.chemHistories.doAction(new EditAction(current_inventory, majorObj, property, to));
+    }
+}
+
+/**
+ * Toggles editing of an object.
+ * @param {string} id The ID of the object to edit.
+ * @param {boolean} isSpecChem Set to true if the edited object is a SpecificChemical, and false if it is a Container.
+ * @param {Element} rowEl The HTML <tr> or <ul> element containing the editor.
+ */
+async function requestEdit(id, isSpecChem, rowEl)
+{
+    console.log(`requestEdit called, ID=${id}, isSpecChem=${isSpecChem}`);
+    console.log(rowEl);
+
+    // Update inline tag displays
+    async function updateInlineTagDisps(specId)
+    {
+        // Row collection element
+        let tagColEl = rowEl.childNodes[4];
+
+        // Remove all tag displays (except the add tag display).
+        // While loop used as the children list updates as deletion happens
+        while (tagColEl.firstChild?.hasAttribute("binded"))
+        {
+            tagColEl.removeChild(tagColEl.firstChild);
+        }
+
+        // For each tag
+        let tagIndexCounter = 0;
+        for (let curTag of chem.subitems[specId].tags)
+        {
+            // The visual tag node to add
+            let cur_span;
+
+            // Add the tag in display
+            // Create new <span> element for tag display
+            cur_span = document.createElement("span");
+            cur_span.classList.add("badge", "rounded-pill");
+            cur_span.setAttribute("binded", tagIndexCounter);
+
+            // Set Foreground color
+            const blackRatio = await getContrast("000000", curTag.color.replace("#", ""));
+            const whiteRatio = await getContrast("FFFFFF", curTag.color.replace("#", ""));
+
+            if (blackRatio > whiteRatio)
+            {
+                cur_span.style.color = "#000000";
+            }
+            else
+            {
+                cur_span.style.color = "#FFFFFF";
+            }
+
+            // Background color (tag color)
+            cur_span.style.backgroundColor = curTag.color;
+
+            // Tag name
+            cur_span.appendChild(document.createTextNode(curTag.name));
+
+            // Set click handler for each tag
+            cur_span.onclick = () => {
+                // If the editing mode is on
+                if (rowEl.hasAttribute("editing"))
+                {
+                    console.log("Attempting edit");
+
+                    // Tag editor handling (add tag)
+                    // tagnode.onclick = () => {
+                        document.getElementById("tag-delete").removeAttribute("disabled");
+                        console.log(tagEditorModal);
+
+                        // Set tag name and color
+                        document.getElementById("tag-name").value = curTag.name;
+                        document.getElementById("tag-color").value = curTag.color;
+
+
+                        // Testing
+                        tagEditorSource.addEventListener("hide.bs.modal", () => {
+                            console.log("Dialog closed");
+                        })
+
+                        // When changes are saved in the tag editor
+                        document.getElementById("tag-save").onclick = () => {
+                            const name = document.getElementById("tag-name").value;
+                            const color = document.getElementById("tag-color").value;
+
+                            console.log(name, color);
+
+                            // Save changes to inventory for name and color
+                            current_inventory.chemHistories.doAction(new EditAction(
+                                current_inventory,
+                                curTag,
+                                "name",
+                                name
+                            ));
+
+                            current_inventory.chemHistories.doAction(new EditAction(
+                                current_inventory,
+                                curTag,
+                                "color",
+                                color
+                            ));
+
+                            // Update inline tag display
+                            updateInlineTagDisps(specId);
+
+                            tagEditorModal.hide();
+                        };
+
+                        // When the tag is being deleted
+                        document.getElementById("tag-delete").onclick = () => {
+                            // Remove tag in inventory
+                            current_inventory.chemHistories.doAction(new DeleteAction(
+                                curTag,
+                                current_inventory,
+                                chem.subitems[specId],
+                                Number(cur_span.getAttribute("binded"))
+                            ));
+
+                            // TODO: update inline tag display
+                            updateInlineTagDisps(specId);
+
+                            tagEditorModal.hide();
+                        };
+
+
+                        tagEditorModal.show();
+                }
+            };
+
+            tagColEl.insertBefore(cur_span, tagColEl.lastChild);
+
+            tagIndexCounter++;
+        }
+
+        // for (let tagNode of rowEl.childNodes[4])
+        // {
+
+        // }
+    }
+
+    // Editing specific chemical
+    if (isSpecChem)
+    {
+        // If currently editing, save changes and turn off editing mode
+        if (rowEl.getAttribute("editing"))
+        {
+            // Save changes
+            reg(chem.subitems[Number(id)], "name", rowEl.childNodes[1].textContent);
+            reg(chem.subitems[Number(id)], "specifications", rowEl.childNodes[2].textContent);
+
+            // Switch interface
+            let nodeCounter = 0;
+            for (let node of rowEl.childNodes)
+            {
+                // Do things only in nodes 1-2 (0-indexed)
+                if (nodeCounter >= 1 && nodeCounter <= 2)
+                {
+                    node.setAttribute("contenteditable", "false");
+                }
+
+                // Remove the add tag interface
+                if (nodeCounter == 4)
+                {
+                    node.removeChild(node.lastChild);
+                }
+
+                nodeCounter++;
+            }
+
+            rowEl.removeAttribute("editing");
+            rowEl.classList.remove("table-info");
+        }
+        // If currently not editing, turn on editing mode
+        else
+        {
+            // Update tag displays
+            updateInlineTagDisps(Number(id));
+
+            let nodeCounter = 0;
+            for (let node of rowEl.childNodes)
+            {
+                // Do things only in nodes 1-2 (0-indexed)
+                if (nodeCounter >= 1 && nodeCounter <= 2)
+                {
+                    node.setAttribute("contenteditable", "true");
+                }
+
+                // And 4 (for the tag editing)
+                if (nodeCounter == 4)
+                {
+                    // Create new <span> element for addinng a tag
+                    let addTagEl = document.createElement("span");
+                    addTagEl.classList.add("badge", "rounded-pill");
+                    addTagEl.style.backgroundColor = "#000000";
+                    addTagEl.style.color = "#FFFFFF";
+                    addTagEl.textContent = "+";
+
+                    // Tag editor handling (add tag)
+                    addTagEl.onclick = () => {
+                        document.getElementById("tag-delete").setAttribute("disabled", "");
+                        console.log(tagEditorModal);
+
+                        // Testing
+                        tagEditorSource.addEventListener("hide.bs.modal", () => {
+                            console.log("Dialog closed");
+                        })
+
+                        // When changes are saved in the tag editor
+                        document.getElementById("tag-save").onclick = async function () {
+                            const name = document.getElementById("tag-name").value;
+                            const color = document.getElementById("tag-color").value;
+
+                            console.log(name, color);
+
+                            // Add the tag in inventory
+                            current_inventory.chemHistories.doAction(new AddAction(
+                                new Tag({name: name, color: color}),
+                                current_inventory,
+                                chem.subitems[Number(id)]
+                            ));
+
+                            // TODO: Update inline tag display
+                            updateInlineTagDisps(Number(id));
+
+                            tagEditorModal.hide();
+                        };
+
+                        tagEditorModal.show();
+
+                        
+                    };
+
+                    node.appendChild(addTagEl);
+                }
+
+                nodeCounter++;
+            }
+
+            rowEl.setAttribute("editing", "true");
+            rowEl.classList.add("table-info");
+        }
+
+        await refreshMasterTagsDisp(chem);
+    }
+    // Editing container
+    else
+    {
+        // If currently editing, save changes and turn off editing mode
+        if (rowEl.getAttribute("editing"))
+        {
+            // Get container index
+            let containerInd = Number(rowEl.parentElement.getAttribute("binded"));
+
+            // Save changes
+            reg(chem.subitems[containerInd].containers[Number(id)], "count", Number(rowEl.childNodes[0].textContent));
+            reg(chem.subitems[containerInd].containers[Number(id)], "unitCapacity", Number(rowEl.childNodes[1].textContent.split(" ")[0]));
+            reg(chem.subitems[containerInd].containers[Number(id)], "remaining", Number(rowEl.childNodes[3].textContent.split(" ")[0]));
+            reg(chem.subitems[containerInd].containers[Number(id)], "capacityUnit", rowEl.childNodes[1].textContent.split(" ")[1]);
+
+            // Switch interface
+            for (let node of rowEl.children)
+            {
+                // Make all nodes non-editable
+                if (node.hasAttribute("contenteditable"))
+                {
+                    node.setAttribute("contenteditable", "false");
+                }
+            }
+
+            await updateSubItems();
+
+            rowEl.removeAttribute("editing");
+            rowEl.classList.remove("list-group-item-info");
+        }
+        // If currently not editing, turn on editing mode
+        else
+        {
+            // Switch interface
+            for (let node of rowEl.children)
+            {
+                // Make all nodes editable
+                if (node.hasAttribute("contenteditable"))
+                {
+                    node.setAttribute("contenteditable", "true");
+                }
+            }
+
+            rowEl.setAttribute("editing", "true");
+            rowEl.classList.add("list-group-item-info");
+        }
+    }
+
+    
+}
+
+/**
+ * Requests deletinng of an object.
+ * @param {string} id The ID of the object to edit.
+ * @param {boolean} isSpecChem Set to true if the edited object is a SpecificChemical, and false if it is a Container.
+ * @param {Element} rowEl The HTML <tr> or <ul> element containing the editor.
+ */
+async function requestDelete(id, isSpecChem, rowEl)
+{
+    console.log(`requestDelete called, ID=${id}, isSpecChem=${isSpecChem}`);
+    console.log(rowEl);
+
+    if (isSpecChem)
+    {
+        current_inventory.chemHistories.doAction(new DeleteAction(chem.subitems[id], current_inventory, chem, id));
+    }
+    else
+    {
+        const rootID = Number(rowEl.parentElement.getAttribute("binded"));
+        current_inventory.chemHistories.doAction(new DeleteAction(chem.subitems[rootID].containers[id], current_inventory, chem.subitems[rootID]));
+    }
+
+    await updateSubItems();
+
+    await refreshMasterTagsDisp(chem);
+}
+
+/**
  * Update the display of subitems
  */
-function updateSubItems()
+async function updateSubItems()
 {
     // Clear table
     subitemsTableEl.replaceChildren();
 
-    // HTML code for buttons
-    const buttonsMarkup = `<button type="button" class="btn btn-primary"><i class="bi bi-pencil"></i></button>
-    <button type="button" class="btn btn-primary"><i class="bi bi-trash"></i></button>`;
+    // Element collection for buttons
+    function getButtonsMarkup(id, isSpecChem, rowEl)
+    {
+        let baseTd = document.createElement("td"); // Base column
+        let btn; // Buttonn element
+        let iEl; // Icon element
+
+        // Button 1 (edit)
+        btn = document.createElement("button");
+        btn.setAttribute("type", "button");
+        btn.classList.add("btn", "btn-primary");
+        btn.setAttribute("binded", id);
+        btn.addEventListener("click", async function(){await requestEdit(id, isSpecChem, rowEl)});
+        
+        iEl = document.createElement("i");
+        iEl.classList.add("bi", "bi-pencil");
+
+        btn.appendChild(iEl);
+        baseTd.appendChild(btn);
+
+        // Button 2 (delete)
+        btn = document.createElement("button");
+        btn.setAttribute("type", "button");
+        btn.classList.add("btn", "btn-primary");
+        btn.setAttribute("binded", id);
+        btn.addEventListener("click", async function(){await requestDelete(id, isSpecChem, rowEl)});
+        
+        iEl = document.createElement("i");
+        iEl.classList.add("bi", "bi-trash");
+
+        btn.appendChild(iEl);
+        baseTd.appendChild(btn);
+
+        return baseTd;
+    }
 
     // Current <tr>, for table row
     let cur_tr;
@@ -292,12 +661,13 @@ function updateSubItems()
         // Create an anchor
         cur_a = document.createElement("a");
         cur_a.setAttribute("data-bs-toggle", "collapse");
-        cur_a.setAttribute("href", `container-${subitem_ind}`);
+        cur_a.setAttribute("href", `#container-${subitem_ind}`);
         cur_a.setAttribute("role", "button");
 
         // Put the text into the anchor
         cur_a.appendChild(document.createTextNode(`▷[${chem.subitems[subitem_ind].containers.length}]`));
 
+        cur_col.appendChild(cur_a);
         cur_tr.appendChild(cur_col);
 
         // 2. Chemical name
@@ -311,7 +681,7 @@ function updateSubItems()
         let unitTracked = false;
         let amtUnitTracker;
         let amtDisp;
-        let unitIsConsistent;
+        let unitIsConsistent = true;
 
         // Amount counting loop
         if (chem.subitems[subitem_ind].containers) {
@@ -358,14 +728,21 @@ function updateSubItems()
         addSubItemCol("td", {contenteditable: "false"}, amtDisp);
 
         // 5. Tags
+        addSubItemCol("td", {});
+
+        let counter = 0;
         for (const tag of chem.subitems[subitem_ind].tags)
         {
             // Create new <span> element for tag display
             cur_span = document.createElement("span");
             cur_span.classList.add("badge", "rounded-pill");
+            cur_span.setAttribute("binded", counter);
 
             // Set Foreground color
-            if (getContrast("000000", tag.color.replace("#", "")) > getContrast("FFFFFF"), tag.color.replace("#", ""))
+            const blackRatio = await getContrast("000000", tag.color.replace("#", ""));
+            const whiteRatio = await getContrast("FFFFFF", tag.color.replace("#", ""));
+
+            if (blackRatio > whiteRatio)
             {
                 cur_span.style.color = "#000000";
             }
@@ -382,11 +759,12 @@ function updateSubItems()
 
             cur_col.appendChild(cur_span);
 
+            counter++;
         }
         cur_tr.appendChild(cur_col);
 
         // 6. Buttons
-        cur_tr.innerHTML += buttonsMarkup;
+        cur_tr.appendChild(getButtonsMarkup(subitem_ind, true, cur_tr));
 
         // Append #1
         subitemsTableEl.appendChild(cur_tr);
@@ -402,14 +780,19 @@ function updateSubItems()
 
         cur_ul = document.createElement("ul");
         cur_ul.classList.add("list-group");
+        cur_ul.setAttribute("binded", subitem_ind);
 
-        for (const container of chem.subitems[subitem_ind].containers)
+        for (const container_ind in chem.subitems[subitem_ind].containers)
         {
+            let container = chem.subitems[subitem_ind].containers[container_ind];
+
             cur_li = document.createElement("li");
+            cur_li.classList.add("list-group-item");
             
             // a. count
             cur_span = document.createElement("span");
             cur_span.classList.add("badge", "bg-secondary", "container-editable");
+            cur_span.setAttribute("contenteditable", "false");
             cur_span.appendChild(document.createTextNode(container.count));
 
             cur_li.appendChild(cur_span);
@@ -417,7 +800,8 @@ function updateSubItems()
             // b. container size
             cur_span = document.createElement("span");
             cur_span.classList.add("container-editable");
-            cur_span.appendChild(document.createTextNode(container.unitCapacity + container.capacityUnit));
+            cur_span.setAttribute("contenteditable", "false");
+            cur_span.appendChild(document.createTextNode(container.unitCapacity + " " + container.capacityUnit));
 
             cur_li.appendChild(cur_span);
 
@@ -427,38 +811,72 @@ function updateSubItems()
             // d. amount left
             cur_span = document.createElement("span");
             cur_span.classList.add("container-editable");
-            cur_span.appendChild(document.createTextNode(container.remaining + container.capacityUnit));
+            cur_span.setAttribute("contenteditable", "false");
+            cur_span.appendChild(document.createTextNode(container.remaining + " " + container.capacityUnit));
 
             cur_li.appendChild(cur_span);
 
             // e. message
             cur_li.appendChild(document.createTextNode(" left"));
 
-            // d. edit and delete buttons
-            cur_li.innerHTML += buttonsMarkup;
-
+            // f. edit and delete buttons
+            cur_li.appendChild(getButtonsMarkup(container_ind, false, cur_li));
 
             cur_ul.appendChild(cur_li);
         }
 
-        // Append #2
-        subitemsTableEl.appendChild(cur_tr);
-
-        // Add button
+        // Add button (add container)
         let addbutton = document.createElement("button");
         addbutton.classList.add("btn", "btn-primary");
-        addbutton.appendChild(document.createTextNode("+"));
-        cur_tr.appendChild(addbutton);
-        subitemsTableEl.appendChild(addbutton);
+        addbutton.setAttribute("binded", subitem_ind);
+        addbutton.appendChild(document.createTextNode("+ (container)"));
+        // Add event listener
+        addbutton.addEventListener("click", () => {
+            current_inventory.chemHistories.doAction(new AddAction(new Container({
+                count: 1,
+                unitCapacity: 50,
+                remaining: 50,
+                capacityUnit: "mL"
+            }), current_inventory, chem.subitems[subitem_ind]));
+
+            // Refresh display
+            updateSubItems();
+        })
+
+        // Append to list
+        cur_ul.appendChild(addbutton);
+
+
+        // Append #2
+        cur_tr.appendChild(cur_ul);
+        subitemsTableEl.appendChild(cur_tr);
     }
 
     cur_tr = document.createElement("tr");
 
-    // Add button
+    // Add button (add subitem)
+    // Create
     let addbutton = document.createElement("button");
     addbutton.classList.add("btn", "btn-primary");
-    addbutton.appendChild(document.createTextNode("+"));
-    cur_tr.appendChild(addbutton);
+    addbutton.appendChild(document.createTextNode("+ (specific chemical)"));
+
+    // Attach event listener
+    addbutton.addEventListener("click", async function(){
+        // Add a subitem
+        current_inventory.chemHistories.doAction(new AddAction(new SpecificChemical({
+            name: nameDispEl.innerText, // Name
+            specifications: "1 M", // Specs
+            tags: [new Tag({name: "Example", color: "#000000"})]
+        }), current_inventory, chem));
+        // Refresh display
+        updateSubItems();
+
+        // Refresh tags display
+        await refreshMasterTagsDisp(chem);
+    })
+
+    // Append to page
+    // cur_tr.appendChild(addbutton);
     subitemsTableEl.appendChild(addbutton);
 }
 
@@ -474,15 +892,62 @@ let editID = GETparams.get("id");
 console.log(`Add name: ${addName}`);
 console.log(`Edit ID: ${editID}`);
 
+/**
+ * Refresh master tags display.
+ * @param {Chemical} item The item being viewed.
+ */
+async function refreshMasterTagsDisp(item)
+{
+    // Clear tags display element
+    tagsEl.replaceChildren();
+
+    let curTagEl; // Current tag element
+    
+    let curTagSet = new Set(); // Current tag set
+
+    for (const subitem of item.subitems)
+    {
+        for (const tag of subitem.tags)
+        {
+            // If the tag already exists (and has been rendered), skip rendering
+            // Avoids rendering the same tag multiple times
+            if (curTagSet.has(tag.name))
+            {
+                continue;
+            }
+
+            curTagSet.add(tag.name);
+
+            curTagEl = document.createElement("span");
+            curTagEl.classList.add("badge", "rounded-pill");
+
+            curTagEl.style.backgroundColor = tag.color;
+
+            if (await getContrast("000000", tag.color.replace("#", "")) > await getContrast("FFFFFF", tag.color.replace("#", "")))
+            {
+                curTagEl.style.color = "#000000";
+            }
+            else
+            {
+                curTagEl.style.color = "#FFFFFF";
+            }
+
+            curTagEl.appendChild(document.createTextNode(tag.name));
+
+            tagsEl.appendChild(curTagEl);
+        }
+    }
+}
+
 // Add or edit mode
 if (addName || editID)
 {
     // Handle tag editing
     // tagsEl
 
-    // const tagEditorModal = new bootstrap.Modal(document.getElementById("tagEditorModal"));
-    // console.log(tagEditorModal);
-    // tagEditorModal.show();
+    // Initialize dialog box
+    tagEditorSource = document.getElementById("tagEditorModal");
+    tagEditorModal = new bootstrap.Modal(tagEditorSource);
 }
 
 // Add mode
@@ -530,6 +995,8 @@ if (addName) {
                 if (ghs_info[1].Name == "Signal")
                 {
                     ghs_signal.textContent = ghs_info[1].Value.StringWithMarkup[0].String;
+
+                    chem.GHSSignal = ghs_info[1].Value.StringWithMarkup[0].String;
                 }
 
                 // If GHS pictograms exist
@@ -552,6 +1019,9 @@ if (addName) {
                         // Adding the image
                         cur_pic_img.setAttribute("src", pic.URL);
                         cur_pic_img.setAttribute("alt", pic.Extra);
+
+                        // Create a GHS pictogram object
+                        chem.GHSPictograms.push(new GHSPictogram({identifier: Number(pic.URL[48])}));
 
                         // Post-packing
                         cur_pic_2.appendChild(cur_pic_img);
@@ -583,6 +1053,9 @@ if (addName) {
                         
                         cur_li.textContent = code.String;
                         ghs_list.appendChild(cur_li);
+
+                        // Create a GHS hazard H code object
+                        chem.GHSCodes.push(new GHSCode({code: code.String.split(":")[0]}));
                     }
 
                     // P codes
@@ -593,6 +1066,9 @@ if (addName) {
                         cur_li.classList.add("list-group-item", "list-group-item-info");
                         cur_li.textContent = `${code}: ${GHSC.P[code] ?? "(unknown)"}`;
                         ghs_list.appendChild(cur_li);
+
+                        // Create a GHS hazard P code object
+                        chem.GHSCodes.push(new GHSCode({code: code}));
                     }
                 }
             }
@@ -613,6 +1089,13 @@ if (addName) {
                 else {
                     nfpa_special.textContent = "NONE";
                 }
+
+                // Construct NFPA 704 diamond in inventory
+                let diamondArgs = nfpa_info[0].Value.StringWithMarkup[0].Markup[0].Extra.split("-");
+                chem.NFPADiamond.healthRating = Number(diamondArgs[0]);
+                chem.NFPADiamond.fireRating = Number(diamondArgs[1]);
+                chem.NFPADiamond.instabilityRating = Number(diamondArgs[2]);
+                chem.NFPADiamond.specialConsiderations = diamondArgs[3];
             }
         }
 
@@ -631,13 +1114,16 @@ if (addName) {
         current_inventory.chemHistories.doAction(new AddAction(chem, current_inventory));
         setInv(current_inventory);
 
-        window.location.replace(ROOT_URL);
+        window.location.replace(ROOT_URL + "/");
     })
 }
 // Edit mode
 else if (editID) {
     // Item currently being viewed
     let viewingItem = current_inventory.chemicalsMap.get(editID);
+    chem = viewingItem;
+
+    console.debug(chem);
 
     // Set the molecular display tab
     molStructEl.setAttribute("src", `https://pubchem.ncbi.nlm.nih.gov/compound/${viewingItem.name}#section=2D-Structure&embed=true`)
@@ -657,29 +1143,7 @@ else if (editID) {
     formulaDispEl.innerHTML = parseFormula(viewingItem.formula, "html");
 
     // 3. tags
-    let curTagEl; // Current tag element
-    
-    for (const subitem of viewingItem.subitems)
-    {
-        for (const tag of subitem.tags)
-        {
-            curTagEl = document.createElement("span");
-            curTagEl.classList.add("badge", "rounded-pill");
-
-            if (getContrast("000000", tag.color.replace("#", "")) > getContrast("FFFFFF", tag.color.replace("#", "")))
-            {
-                curTagEl.style.color = "#000000";
-            }
-            else
-            {
-                curTagEl.style.color = "#FFFFFF";
-            }
-
-            curTagEl.appendChild(document.createTextNode(tag.name));
-
-            tagsEl.appendChild(curTagEl);
-        }
-    }
+    await refreshMasterTagsDisp(viewingItem);
     
     // 4. notes
     notesEl.value = viewingItem.notes;
@@ -687,25 +1151,82 @@ else if (editID) {
     // 5. Subitems
     updateSubItems();
 
+    // 6a. GHS signal
+    ghs_signal.textContent = chem.GHSSignal;
+
+    // 6b. GHS pictograms
+    for (const pic of chem.GHSPictograms)
+    {
+        console.log(pic);
+
+        let cur_pic_1, cur_pic_2, cur_pic_img;
+
+        // Pre-packing
+        cur_pic_1 = document.createElement("div");
+        cur_pic_1.classList.add("col");
+        cur_pic_2 = document.createElement("div");
+        cur_pic_2.classList.add("card");
+        cur_pic_img = document.createElement("img");
+        cur_pic_img.classList.add("ghs-pictogram");
+
+        // Adding the image
+        cur_pic_img.setAttribute("src", pic.image);
+        cur_pic_img.setAttribute("alt", pic.text);
+
+        // Post-packing
+        cur_pic_2.appendChild(cur_pic_img);
+        cur_pic_2.appendChild(document.createTextNode(pic.text));
+        cur_pic_1.appendChild(cur_pic_2);
+        ghs_pictograms.appendChild(cur_pic_1);
+    }
+
+    // 7. GHS Hazard statements
+    // Current code list item
+    let cur_li;
+
+    for (const code of chem.GHSCodes)
+    {
+        cur_li = document.createElement("li");
+        cur_li.classList.add("list-group-item");
+
+        // H code
+        if (code.code[0] == "H")
+        {
+            cur_li.classList.add("list-group-item-danger");
+        }
+        // P code
+        else
+        {
+            cur_li.classList.add("list-group-item", "list-group-item-info");
+        }
+
+        cur_li.textContent = code.code + ": " + code.text;
+
+        ghs_list.appendChild(cur_li);
+    }
+
+    // 8. NFPA 704 diamond
+    nfpaDiamond.setAttribute("src", chem.NFPADiamond.image);
+    nfpaDiamond.setAttribute("alt", chem.NFPADiamond.chainedString);
+
+    nfpa_health.textContent = chem.NFPADiamond.healthRating + " - " + chem.NFPADiamond.getHealthMsg();
+    nfpa_fire.textContent = chem.NFPADiamond.fireRating + " - " + chem.NFPADiamond.getFireMsg();
+    nfpa_instability.textContent = chem.NFPADiamond.instabilityRating + " - " + chem.NFPADiamond.getInstabilityMsg();
+    if (chem.NFPADiamond.getSpecHazardMsg() !== "NONE")
+    {
+        nfpa_special.textContent = chem.NFPADiamond.specialConsiderations + " - " + chem.NFPADiamond.getSpecHazardMsg();
+    }
+    else
+    {
+        nfpa_special.textContent = "NONE";
+    }
+
+
     // When the close button is clicked, save chemical
     closeBtn.addEventListener("click", () =>
     {
 
         // Determine what properties to edit
-
-        /**
-         * Attempt to perform an edit
-         * @param {Item | SubItem | Container} majorObj The Object that is being edited
-         * @param {string} property The string of the property name to edit
-         * @param {any} to The value of the edit
-         */
-        function reg(majorObj, property, to)
-        {
-            if (majorObj[property] != to)
-            {
-                current_inventory.chemHistories.doAction(new EditAction(current_inventory, majorObj, property, to));
-            }
-        }
 
         // 1. Name
         reg(viewingItem, "name", nameDispEl.textContent);
@@ -713,7 +1234,7 @@ else if (editID) {
         // 2. Molecular formula
         reg(viewingItem, "formula", formulaDispEl.textContent.replace("•", "*"));
 
-        // 3. tags
+        // 3. tags (already saved)
 
         // 4. Notes
         reg(viewingItem, "notes", notesEl.value);
@@ -722,7 +1243,7 @@ else if (editID) {
         setInv(current_inventory);
 
         // Redirect to home page
-        window.location.replace(ROOT_URL);
+        window.location.replace(ROOT_URL + "/");
     })
 
     // When the delete button is clicked, ask for confirmation and delete chemical
@@ -736,7 +1257,7 @@ else if (editID) {
             setInv(current_inventory);
 
             // Redirect to home page
-            window.location.replace(ROOT_URL);
+            window.location.replace(ROOT_URL + "/");
         }
     })
 }
