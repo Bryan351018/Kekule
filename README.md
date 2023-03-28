@@ -12,7 +12,4 @@ A web-based inventory that tracks chemicals and apparatuses
 ## APIs and databases used
 + [PubChem](https://pubchem.ncbi.nlm.nih.gov/): chemical information
 + [hazard-statements.json, precautionary-statements.json](https://gist.github.com/richardingham/0237ffa3f0f0be2933e6): List of GHS Hazard and Precautionary statements
-
-## TODO
-- [ ] Complete UI
-- [ ] Complete Kekule internal logic
++ [WebAIM Contrast Checker](https://webaim.org/resources/contrastchecker/): Color contrast calculator between two colors, used to determine the text color of tags
