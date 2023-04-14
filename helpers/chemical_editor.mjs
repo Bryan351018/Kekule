@@ -989,8 +989,7 @@ if (addName) {
             console.log(nfpa_info);
 
             // If GHS info exists:
-
-            if (ghs_info) {
+            if (ghs_info[0].Value.StringWithMarkup[0].String != "Not Classified") {
                 // If GHS signal exist
                 if (ghs_info[1].Name == "Signal")
                 {
